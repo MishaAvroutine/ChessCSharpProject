@@ -20,5 +20,29 @@ namespace ChessLogic
             copy.HasMoved = HasMoved;
             return copy;
         }
+
+        private static IEnumerable<Postion> PotentialToPositions(Postion from)
+        {
+            foreach(Direction vDir in new Direction[] {Direction.North,Direction.South})
+            {
+                foreach(Direction hDir in new Direction[] { Direction.West, Direction.East})
+                {
+                    yield return from + 2 * vDir + hDir;
+                    yield return from + 2 * hDir + vDir;
+                }
+            }
+        }
+
+
+        private IEnumerable<Postion> MovePostions(Postion from, Board board)
+        {
+            return PotentialToPositions(from).Where(pos => Board.IsInside(pos) && board.IsEmpty(pos) || board[pos].Color != Color);
+        }
+
+
+        public override IEnumerable<Move> GetMoves(Postion from, Board board)
+        {
+            return MovePostions(from,board).Select(to => new NormalMove(from, to));
+        }
     }
 }

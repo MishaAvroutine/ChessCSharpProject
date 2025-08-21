@@ -19,9 +19,18 @@ namespace ChessLogic
             this.from = from;
         }
 
+
+        /*
+         *function that executes the base moves by moving the given from loaction to the end location
+         *input: the board
+         *ouput: none
+        */
         public override void Execute(Board board)
         {
-            
+            Piece piece = board[from];
+            board[to] = piece;
+            board[from] = null;
+            piece.HasMoved = true;
         }
     }
 }

@@ -11,6 +11,14 @@ namespace ChessLogic
         public override PieceType Type => PieceType.Rook;
         public override Player Color { get; }
 
+        public static readonly Direction[] directions = new Direction[]
+        {
+            Direction.North,
+            Direction.South,
+            Direction.East,
+            Direction.West,
+        };
+
 
         public Rook(Player color) => Color = color;
 
@@ -19,6 +27,12 @@ namespace ChessLogic
             Rook copy = new Rook(Color);
             copy.HasMoved = HasMoved;
             return copy;
+        }
+
+
+        public override IEnumerable<Move> GetMoves(Postion from, Board board)
+        {
+            return MovesPositionInDirs(from, board, directions).Select(to => new NormalMove(from, to));
         }
     }
 }
