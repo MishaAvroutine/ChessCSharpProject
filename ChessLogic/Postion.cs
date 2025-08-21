@@ -1,8 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+
 
 namespace ChessLogic
 {
@@ -50,5 +47,11 @@ namespace ChessLogic
         {
             return !(left == right);
         }
+
+        public static Postion operator +(Postion pos,Direction direction)
+        {
+           return new Postion(pos.row + direction.RowDelta, pos.column + direction.ColumnDelta);
+        }
+
     }
 }
