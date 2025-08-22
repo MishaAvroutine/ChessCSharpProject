@@ -50,7 +50,8 @@ namespace ChessLogic
 
         /*
          * checks if a pawn can capture a piece at it's diagnal
-         * 
+         * input: the pos to move to, the board
+         * ouput: True or False if the pawn can capture
         */
         private bool CanCapture(Postion pos,Board board)
         {
@@ -59,6 +60,12 @@ namespace ChessLogic
             return board[pos].Color != Color;
         }
 
+
+        /*
+         * function to check the forward moves of a pawn
+         * input: the pos from and the board
+         * output: list of possible forward
+        */
         private IEnumerable<Move> ForwardMoves(Postion from, Board board)
         {
             Postion oneMovePos = from + forward;
@@ -75,6 +82,11 @@ namespace ChessLogic
             }
         }
 
+        /*
+         * function to check the diagonal moves of a pawn
+         * input: the pos from and the board
+         * output: list of possible diogonal moves aka capture or en passant
+        */
         private IEnumerable<Move> DiagonalMoves(Postion from,Board board)
         {
             foreach(Direction dir in new Direction[] {Direction.West,Direction.East})

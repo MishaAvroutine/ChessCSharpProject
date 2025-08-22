@@ -11,6 +11,7 @@ namespace ChessLogic
         public const int SIZE = 8; 
         private readonly Piece[,] board = new Piece[SIZE,SIZE]; 
 
+        // get the piece at the position using row,col
         public Piece this[int row,int col] { 
             get {  
                 if (row < 0 || row >= SIZE || col < 0 || col >= SIZE)
@@ -24,6 +25,7 @@ namespace ChessLogic
             } 
         }
 
+        // get the piece at the position using the postion class object
         public Piece this[Postion pos]
         {
             get { 
@@ -36,6 +38,12 @@ namespace ChessLogic
             }
         }
 
+
+        /*
+         * function to initalize the start board
+         * input:None
+         * output:Noe
+        */
         public static Board Inital()
         {
             Board board = new Board();
@@ -43,6 +51,13 @@ namespace ChessLogic
             return board;
         }
 
+
+        /*
+         * 
+         * function to add the start pieces
+         * input: None
+         * ouput:None
+        */
         public void AddStartPieces()
         {
             this[0, 0] = new Rook(Player.Black);
@@ -77,12 +92,23 @@ namespace ChessLogic
             }
         }
 
+        /*
+         * function to check if a position is inside the board
+         * input: the position
+         * ouput: True or False if inside the board
+        */
         public static bool IsInside(Postion pos)
         {
             if (pos == null) return false;
             return pos.row < SIZE && pos.row >= 0 && pos.column < SIZE && pos.column >= 0;
         }
 
+
+        /*
+         * function to check if a certain position on the board is empty
+         * input: the position
+         * ouput: True or False if the board at that position is empty
+        */
         public bool IsEmpty(Postion pos)
         {
             return this[pos] == null;

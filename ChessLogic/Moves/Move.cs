@@ -6,6 +6,8 @@
         public abstract Postion from {get;}
         public abstract Postion to {get;}
 
+
+        // abstract method to execute move
         public abstract void Execute(Board board);
     }
 }

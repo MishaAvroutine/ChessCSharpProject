@@ -24,7 +24,10 @@ namespace ChessUI
         private readonly Rectangle[,] HighLights = new Rectangle[SIZE, SIZE];
         private readonly Dictionary<Postion,Move> moveCache = new Dictionary<Postion,Move>();
 
+
+        // the main gamestate variable with the board and move execusion
         private GameState gameState;
+
         private Postion selecetedPos = null;
         public MainWindow()
         {
@@ -35,6 +38,13 @@ namespace ChessUI
             DrawBoard(gameState.Board);
         }
 
+
+        /*
+         * 
+         * function to initialize the board in the ui with the highlight and image squars
+         * input: None
+         * output: None
+        */
         public void InitilizeBoard()
         {
             for(int row =0; row < SIZE;row++)
@@ -52,7 +62,12 @@ namespace ChessUI
             }
         }
 
-
+        
+        /*
+         *  function to draw and update the board based on the moves made and the image changes
+         *  input: the board state
+         *  output: None
+        */
         public void DrawBoard(Board board)
         {
             for (int row = 0; row < SIZE; row++)
@@ -65,6 +80,13 @@ namespace ChessUI
             }
         }
 
+
+        /*
+         * 
+         * function to handle the clickdown event and is responsible with highlighting and choosing a piece
+         * input: the object sender, the mouse event e
+         * output: None
+        */
         private void BoardGrid_MouseDown(object sender, MouseButtonEventArgs e)
         {
             Point point = e.GetPosition(BoardGrid);
@@ -80,6 +102,12 @@ namespace ChessUI
             }
         }
 
+
+        /*
+         * function to get the position of the square that was choosen in the ui
+         * input: the point in the ui
+         * output: a new Position object which stores the position chosen in the chess board
+        */
         private Postion ToSquarePosition(Point point)
         {
             double squareSize = BoardGrid.ActualWidth / SIZE;
@@ -89,11 +117,16 @@ namespace ChessUI
             return new Postion(row, col);
         }
 
+
+        /*
+         * function to choose the piece that we want to move and update the moves cache and highlight the possible moves for that piece
+         * input: The position of the piece
+         * ouput: None
+        */
         private void OnFromPostionSelected(Postion pos)
         {
             try
             {
-                // Validate position is within bounds
                 if (pos.row < 0 || pos.row >= SIZE || pos.column < 0 || pos.column >= SIZE)
                 {
                     return;
@@ -115,6 +148,13 @@ namespace ChessUI
             }
         }
 
+
+        /*
+         * 
+         * function to handle and make the move after it is selected
+         * input: the move to make from->to
+         * output: None
+        */
         private void HandleMove(Move move)
         {
             try
@@ -128,6 +168,12 @@ namespace ChessUI
             }
         }
 
+
+        /*
+         * function to finilize the move chosen and hide the highlights and make the move
+         * input: the position of the move that is chosen to do
+         * output: None
+        */
         private void OnToPostionSelected(Postion pos)
         {
             selecetedPos = null;
@@ -139,6 +185,12 @@ namespace ChessUI
         }
 
 
+        /*
+         * 
+         * function to cache the moves that a chosen piece can make
+         * input: the list of moves possible
+         * ouput: None
+        */
         private void CacheMoves(IEnumerable<Move> moves)
         {
             moveCache.Clear();
@@ -151,15 +203,29 @@ namespace ChessUI
         }
 
 
+        /*
+         * 
+         * function to highlight the squares from the cache
+         * input: None
+         * ouput: None
+        */
         private void HighLightSquare()
         {
-            Color HighLightColor = Color.FromArgb(150, 125, 255, 125);
+            Color HighLightColor = Color.FromArgb(255, 49, 216, 229);
             foreach (Postion to in moveCache.Keys)
             {
                 HighLights[to.row, to.column].Fill = new SolidColorBrush(HighLightColor); 
             }
         }
 
+
+        /*
+         * 
+         * function to hide the highlighted squares
+         * input: None
+         * ouput: None
+         * 
+        */
         private void HideHighLights()
         {
             foreach(Postion to in moveCache.Keys)

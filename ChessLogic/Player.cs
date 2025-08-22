@@ -15,6 +15,10 @@ namespace ChessLogic
 
     public static class PlayerExtensions
     {
+        /*
+         * function to get the next color move of the opponent
+         * input: the color of the player
+        */
         public static Player Opponent(this Player player)
         {
             return player switch

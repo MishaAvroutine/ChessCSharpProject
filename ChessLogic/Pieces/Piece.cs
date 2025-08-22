@@ -18,7 +18,13 @@ namespace ChessLogic
 
         // abstarct method to get all the posibble moves from the start postion
         public abstract IEnumerable<Move> GetMoves(Postion from,Board board);
+        
 
+        /*
+         * function to get all the possible moves in a certain direction
+         * input: the postion from/start the board and the direction of the move
+         * output: the list of possible moves
+        */
         protected IEnumerable<Postion> MovesPositionsInDir(Postion from,Board board,Direction dir)
         {
             for(Postion pos = from + dir;Board.IsInside(pos);pos = pos + dir)

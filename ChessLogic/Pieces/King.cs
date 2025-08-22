@@ -33,6 +33,7 @@ namespace ChessLogic
             return copy;
         }
 
+        // get all king moves
         private IEnumerable<Postion> MovePositions(Postion from, Board board)
         {
             foreach(Direction dir in directions)

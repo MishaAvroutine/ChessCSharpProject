@@ -15,6 +15,12 @@
             return copy;
         }
 
+
+        /*
+         * function to get all the knight potential moves
+         * input: the start pos
+         * ouput: all the possible moves of the knight
+        */
         private static IEnumerable<Postion> PotentialToPositions(Postion from)
         {
             foreach(Direction vDir in new Direction[] {Direction.North,Direction.South})
@@ -27,7 +33,7 @@
             }
         }
 
-
+        // get all legal moves
         private IEnumerable<Postion> MovePostions(Postion from, Board board)
         {
             return PotentialToPositions(from).Where(pos => Board.IsInside(pos) && (board.IsEmpty(pos) || board[pos].Color != Color));
