@@ -54,7 +54,7 @@ namespace ChessLogic
         */
         private bool CanCapture(Postion pos,Board board)
         {
-            if (!(Board.IsInside(pos) || board.IsEmpty(pos))) return false;
+            if (!Board.IsInside(pos) || board.IsEmpty(pos)) return false;
 
             return board[pos].Color != Color;
         }
@@ -88,7 +88,7 @@ namespace ChessLogic
             }
         }
 
-        protected IEnumerable<Move> GetMoves(Postion from, Board board)
+        public override IEnumerable<Move> GetMoves(Postion from, Board board)  
         {
             return ForwardMoves(from,board).Concat(DiagonalMoves(from, board));
         }

@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace ChessLogic
+﻿namespace ChessLogic
 {
     public class Knight : Piece
     {
@@ -36,7 +30,7 @@ namespace ChessLogic
 
         private IEnumerable<Postion> MovePostions(Postion from, Board board)
         {
-            return PotentialToPositions(from).Where(pos => Board.IsInside(pos) && board.IsEmpty(pos) || board[pos].Color != Color);
+            return PotentialToPositions(from).Where(pos => Board.IsInside(pos) && (board.IsEmpty(pos) || board[pos].Color != Color));
         }
 
 

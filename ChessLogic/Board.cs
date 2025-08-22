@@ -12,14 +12,28 @@ namespace ChessLogic
         private readonly Piece[,] board = new Piece[SIZE,SIZE]; 
 
         public Piece this[int row,int col] { 
-            get {  return board[row,col]; } 
-            set { board[row, col] = value; } 
+            get {  
+                if (row < 0 || row >= SIZE || col < 0 || col >= SIZE)
+                    return null;
+                return board[row,col]; 
+            } 
+            set { 
+                if (row < 0 || row >= SIZE || col < 0 || col >= SIZE)
+                    return;
+                board[row, col] = value; 
+            } 
         }
 
         public Piece this[Postion pos]
         {
-            get { return this[pos.row, pos.column]; }
-            set { this[pos.row, pos.column] = value; }
+            get { 
+                if (pos == null) return null;
+                return this[pos.row, pos.column]; 
+            }
+            set { 
+                if (pos == null) return;
+                this[pos.row, pos.column] = value; 
+            }
         }
 
         public static Board Inital()
@@ -65,6 +79,7 @@ namespace ChessLogic
 
         public static bool IsInside(Postion pos)
         {
+            if (pos == null) return false;
             return pos.row < SIZE && pos.row >= 0 && pos.column < SIZE && pos.column >= 0;
         }
 

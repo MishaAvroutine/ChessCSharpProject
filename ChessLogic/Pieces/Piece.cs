@@ -21,7 +21,7 @@ namespace ChessLogic
 
         protected IEnumerable<Postion> MovesPositionsInDir(Postion from,Board board,Direction dir)
         {
-            for(Postion pos = from + dir;Board.IsInside(pos);pos += dir)
+            for(Postion pos = from + dir;Board.IsInside(pos);pos = pos + dir)
             {
                 if(board.IsEmpty(pos))
                 {
