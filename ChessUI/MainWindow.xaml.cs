@@ -1,12 +1,7 @@
-﻿using System.Text;
-using System.Windows;
+﻿using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
 using System.Windows.Shapes;
 
 using ChessLogic;
@@ -36,6 +31,7 @@ namespace ChessUI
 
             gameState = new GameState(Player.White, Board.Inital());
             DrawBoard(gameState.Board);
+            SetCursor(gameState.CurrentPlayer);
         }
 
 
@@ -161,11 +157,13 @@ namespace ChessUI
             {
                 gameState.MakeMove(move);
                 DrawBoard(gameState.Board);
+                SetCursor(gameState.CurrentPlayer);
             }
             catch (Exception ex)
             {
                 MessageBox.Show($"Error executing move: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
+
         }
 
 
@@ -235,6 +233,16 @@ namespace ChessUI
         }
 
 
-
+        private void SetCursor(Player player)
+        {
+            if(player == Player.White)
+            {
+                Cursor = ChessCursor.WhiteCursor;
+            }
+            else
+            {
+                Cursor = ChessCursor.BlackCursor;
+            }
+        }
     }
 }

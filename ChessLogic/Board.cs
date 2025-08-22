@@ -113,5 +113,68 @@ namespace ChessLogic
         {
             return this[pos] == null;
         }
+
+
+        /*
+         * function to get all the pieces positions on the board
+         * input: None
+         * ouput: all the locations of all the pieces on the board
+        */
+        public IEnumerable<Postion> PiecePositions()
+        {
+            for (int i = 0; i < SIZE; i++)
+            {
+                for (int j = 0; j < SIZE; j++)
+                {
+                    if (board[i, j] == null) continue;
+                    yield return new Postion(i, j);
+                }
+            }
+        }
+
+
+        /*
+         * function to get all the pieces for a certain color
+         * input: the player
+         * ouput: all the pieces location of a singal player
+        */
+        public IEnumerable<Postion> PiecePositionsFor(Player player)
+        {
+            return PiecePositions().Where(pos => this[pos].Color == player);
+        }
+
+
+        /*
+         * function to check if a player is in check
+         * input: the player
+         * ouput: True or False if the player is in check
+        */
+        public bool IsInCheck(Player player)
+        {
+            return PiecePositionsFor(player.Opponent()).Any(pos =>
+            {
+                Piece piece = this[pos];
+                return piece.CanCaptureOpponnentKing(pos,this);
+            });
+        }
+
+
+        /*
+         * function to copy the board
+         * input: None
+         * ouput: a copy of the board
+        */
+        public Board Copy()
+        {
+            Board copy = new Board();
+
+            foreach (Postion pos in PiecePositions())
+            {
+                copy[pos] = this[pos].Copy();
+            }
+            return copy;
+        }
     }
+
+
 }

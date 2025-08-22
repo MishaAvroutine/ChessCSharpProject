@@ -49,5 +49,21 @@ namespace ChessLogic
         {
             return directions.SelectMany(dir => MovesPositionsInDir(from, board, dir));
         }
+
+
+        /*
+         * 
+         * virtual method to check if a certain player can capture a king
+         * input: the from pos, the board
+         * ouput: True or false if able to capture any king
+        */
+        public virtual bool CanCaptureOpponnentKing(Postion from,Board board)
+        {
+            return GetMoves(from,board).Any(move =>
+            {
+                Piece piece = board[move.to];
+                return  piece != null && piece.Type == PieceType.King;
+            });
+        }
     }
 }
