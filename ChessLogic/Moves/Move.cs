@@ -8,7 +8,7 @@
 
 
         // abstract method to execute move
-        public abstract void Execute(Board board);
+        public abstract bool Execute(Board board);
 
 
         /*

@@ -4,10 +4,14 @@ namespace ChessLogic
 {
     public class GameState
     {
+        public const int MAX_MOVES_WITHOUT_ANY_CAPTURES = 50;
+        public const int NUM_OF_PLAYERS = 2;
         public Board Board { get; } 
         public Player CurrentPlayer { get; private set; }
 
         public Result Result { get; private set; } = null;
+
+        private int MoveCountWithoutAnyCapturesOrPawnMoves = 0;
 
         public GameState(Player player,Board board)
         {
@@ -42,7 +46,15 @@ namespace ChessLogic
         public void MakeMove(Move move)
         {
             Board.SetPawnSkippedPosition(CurrentPlayer,null);
-            move.Execute(Board);
+            bool captured = move.Execute(Board);
+            if(captured)
+            {
+                MoveCountWithoutAnyCapturesOrPawnMoves = 0;
+            }
+            else
+            {
+                MoveCountWithoutAnyCapturesOrPawnMoves++;
+            }
             CurrentPlayer = CurrentPlayer.Opponent();
             CheckForGameOver();
         }
@@ -85,6 +97,10 @@ namespace ChessLogic
                     Result = Result.Draw(EndGame.Stalemate);
                 }
             }
+            else if(FiftyRuleMove())
+            {
+                Result = Result.Draw(EndGame.FiftyMoveRule);
+            }
         }
 
 
@@ -96,6 +112,12 @@ namespace ChessLogic
         public bool IsGameOver()
         {
             return Result != null;
+        }
+
+        private bool FiftyRuleMove()
+        {
+            int fullMoves = MoveCountWithoutAnyCapturesOrPawnMoves / NUM_OF_PLAYERS;
+            return fullMoves == MAX_MOVES_WITHOUT_ANY_CAPTURES;
         }
     }
 }

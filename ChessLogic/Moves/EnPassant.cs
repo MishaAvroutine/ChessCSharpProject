@@ -24,10 +24,11 @@ namespace ChessLogic
         }
 
 
-        public override void Execute(Board board)
+        public override bool Execute(Board board)
         {
             new NormalMove(from, to).Execute(board);
             board[capturePos] = null;
+            return true;
         }
 
 

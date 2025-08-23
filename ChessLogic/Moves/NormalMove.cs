@@ -25,12 +25,14 @@ namespace ChessLogic
          *input: the board
          *ouput: none
         */
-        public override void Execute(Board board)
+        public override bool Execute(Board board)
         {
             Piece piece = board[from];
+            bool capture = !board.IsEmpty(to);
             board[to] = piece;
             board[from] = null;
             piece.HasMoved = true;
+            return capture || piece.Type == PieceType.Pawn;
         }
     }
 }
