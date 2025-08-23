@@ -86,9 +86,9 @@ namespace ChessLogic
         */
         public void CheckForGameOver()
         {
-            if(!AllLegalMovesFor(CurrentPlayer).Any())
+            if (!AllLegalMovesFor(CurrentPlayer).Any())
             {
-                if(Board.IsInCheck(CurrentPlayer))
+                if (Board.IsInCheck(CurrentPlayer))
                 {
                     Result = Result.Win(CurrentPlayer.Opponent());
                 }
@@ -97,9 +97,13 @@ namespace ChessLogic
                     Result = Result.Draw(EndGame.Stalemate);
                 }
             }
-            else if(FiftyRuleMove())
+            else if (FiftyRuleMove())
             {
                 Result = Result.Draw(EndGame.FiftyMoveRule);
+            }
+            else if (Board.InsufficientMaterial())
+            {
+                Result = Result.Draw(EndGame.InsufficientMaterial);
             }
         }
 

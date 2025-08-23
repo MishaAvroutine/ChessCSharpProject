@@ -12,6 +12,7 @@
             {Player.White, null }
             , {Player.Black, null }
         };
+        private const int NUM_OF_PLAYERS = 2;
 
         // get the piece at the position using row,col
         public Piece this[int row,int col] { 
@@ -205,6 +206,61 @@
             }
             return copy;
         }
+
+
+        public Counting CountPieces()
+        {
+            Counting counting = new Counting();
+
+            foreach(Postion pos in PiecePositions())
+            {
+                Piece piece = this[pos];
+                counting.Increment(piece.Color,piece.Type);
+            }
+            return counting;
+        }
+
+        public bool InsufficientMaterial()
+        {
+            Counting count = CountPieces();
+            return IsKingVKing(count) ||
+                IsKingBishopVKingBishop(count) ||  
+                IsKingVKingAndKnight(count) || 
+                KingVKingAndBishop(count);
+        }
+
+        private static bool IsKingVKing(Counting count)
+        {
+            return count.TotalCount == NUM_OF_PLAYERS;  
+        }
+
+        private static bool KingVKingAndBishop(Counting count)
+        {
+            return count.TotalCount == 3 && (count.White(PieceType.Bishop) == 1 || count.Black(PieceType.Bishop) == 1);
+        }
+
+        private static bool IsKingVKingAndKnight(Counting count)
+        {
+            return count.TotalCount == 3 && (count.White(PieceType.Knight) == 1 || count.Black(PieceType.Knight) == 1);
+        }
+
+        private bool IsKingBishopVKingBishop(Counting count)
+        {
+            if (count.TotalCount != 4) return false;
+            if(count.White(PieceType.Bishop) != 1 || count.Black(PieceType.Bishop) != 1) return false;
+
+            Postion wBishopPos = FindPiece(Player.White, PieceType.Bishop);
+            Postion bBishopPos = FindPiece(Player.Black, PieceType.Bishop);
+            return wBishopPos.SquareColor() == bBishopPos.SquareColor();
+        }
+
+
+        private  Postion FindPiece(Player color, PieceType piece)
+        {
+            return PiecePositionsFor(color).First(pos => this[pos].Type == piece);
+        }
+
+
     }
 
 
