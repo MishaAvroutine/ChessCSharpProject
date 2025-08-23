@@ -72,7 +72,17 @@ namespace ChessLogic
 
             if (CanMoveTo(oneMovePos, board))
             {
-                yield return new NormalMove(from, oneMovePos);
+                if(oneMovePos.row == 0 || oneMovePos.row == 7) // pawn promotion
+                {
+                   foreach(Move move in PromotionMoves(from,oneMovePos))
+                    {
+                        yield return move;
+                    }
+                }
+                else
+                {
+                    yield return new NormalMove(from, oneMovePos);
+                }
 
                 Postion twoMovesPosition = oneMovePos + forward;
                 if (!HasMoved && CanMoveTo(twoMovesPosition, board))
@@ -95,7 +105,17 @@ namespace ChessLogic
 
                 if(CanCapture(to,board))
                 {
-                    yield return new NormalMove(from, to);
+                    if (to.row == 0 || to.row == 7) // pawn promotion
+                    {
+                        foreach (Move move in PromotionMoves(from, to))
+                        {
+                            yield return move;
+                        }
+                    }
+                    else
+                    {
+                        yield return new NormalMove(from, to);
+                    }
                 }
             }
         }
@@ -113,5 +133,14 @@ namespace ChessLogic
                 return piece != null && piece.Type == PieceType.King;
             });
         }
+
+        private static IEnumerable<Move> PromotionMoves(Postion from,Postion to)
+        {
+            yield return new PawnPromotion(from,PieceType.Knight,to);
+            yield return new PawnPromotion(from,PieceType.Queen,to);
+            yield return new PawnPromotion(from, PieceType.Bishop, to);
+            yield return new PawnPromotion(from, PieceType.Rook, to);
+        }
+
     }
 }

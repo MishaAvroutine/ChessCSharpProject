@@ -1,13 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace ChessLogic
+﻿namespace ChessLogic
 {
     public class Board
     {
+        private const string startFen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR";
         public const int SIZE = 8; 
         private readonly Piece[,] board = new Piece[SIZE,SIZE]; 
 
@@ -47,48 +42,66 @@ namespace ChessLogic
         public static Board Inital()
         {
             Board board = new Board();
-            board.AddStartPieces();
+            board.AddStartPieces(startFen);
             return board;
         }
 
 
         /*
          * 
-         * function to add the start pieces
-         * input: None
+         * function to get the piece based on the piece type from the fen string
+         * input: char PieceType
+         * output: the new piece from that type
+        */ 
+        public static Piece GetPiece(char pieceType)
+        {
+            Player pieceColor = char.IsLower(pieceType) ? Player.Black : Player.White;
+            switch (char.ToLower(pieceType))
+            {
+                case 'r':
+                    return new Rook(pieceColor);
+                case 'n':
+                    return new Knight(pieceColor);
+                case 'b':
+                    return new Bishop(pieceColor);
+                case 'q':
+                    return new Queen(pieceColor);
+                case 'k':
+                    return new King(pieceColor);
+                case 'p':
+                    return new Pawn(pieceColor);
+                default:
+                    return null;
+            }
+        }
+
+
+        /*
+         * 
+         * function to add the pieces based on a provided fen
+         * input: the fen string
          * ouput:None
         */
-        public void AddStartPieces()
+        public void AddStartPieces(string fen)
         {
-            this[0, 0] = new Rook(Player.Black);
-            this[0,1] = new Knight(Player.Black);
-            this[0,2] = new Bishop(Player.Black);
-            this[0,3] = new Queen(Player.Black);
-            this[0, 4] = new King(Player.Black);
-            this[0, 5] = new Bishop(Player.Black);
-            this[0, 6] = new Knight(Player.Black);
-            this[0, 7] = new Rook(Player.Black);
-
-            for(int col = 0;col < SIZE;col++)
+            int rank = 0;
+            int file = 0;
+            foreach(char ch in fen)
             {
-                this[1,col] = new Pawn(Player.Black);
-            }
-
-
-
-            this[7, 0] = new Rook(Player.White);
-            this[7, 1] = new Knight(Player.White);
-            this[7, 2] = new Bishop(Player.White);
-            this[7, 3] = new Queen(Player.White);
-            this[7, 4] = new King(Player.White);
-            this[7, 5] = new Bishop(Player.White);
-            this[7, 6] = new Knight(Player.White);
-            this[7, 7] = new Rook(Player.White);
-
-
-            for (int col = 0; col < SIZE; col++)
-            {
-                this[6, col] = new Pawn(Player.White);
+                if (ch == '/')
+                {
+                    rank++;
+                    file = 0;
+                }
+                else if(char.IsDigit(ch))
+                {
+                    file += (int)char.GetNumericValue(ch);
+                }
+                else
+                {
+                    this[rank,file] = GetPiece(ch);
+                    file++;
+                }
             }
         }
 
