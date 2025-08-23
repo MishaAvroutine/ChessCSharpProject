@@ -14,7 +14,7 @@
         {
             this.from = from;
             this.to = to;
-            skippedPos = new Postion((from.row + to.row) / 2, from.column);
+            skippedPos = new Postion((from.row + to.row) / 2, from.column); // double move skipped position
         }
 
         public override bool Execute(Board board)
@@ -23,7 +23,7 @@
 
             board.SetPawnSkippedPosition(player, skippedPos);
 
-            new NormalMove(from, to).Execute(board);
+            new NormalMove(from, to).Execute(board); 
             return true ;
         }
     }

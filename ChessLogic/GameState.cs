@@ -114,6 +114,11 @@ namespace ChessLogic
             return Result != null;
         }
 
+        /*
+         * function to handle the 50 rule move game end situation
+         * input: None
+         * ouput: True or False if we have reached a 50 move rule violation
+        */
         private bool FiftyRuleMove()
         {
             int fullMoves = MoveCountWithoutAnyCapturesOrPawnMoves / NUM_OF_PLAYERS;

@@ -21,26 +21,27 @@ namespace ChessLogic
             this.Type = type;
             from = king;
 
-            if(type == MoveType.CastleKS)
+            if(type == MoveType.CastleKS) // king side castle
             {
-                kingMoveDir = Direction.East;
-                to = new Postion(king.row, 6);
-                RookFromPos = new Postion(king.row, 7);
-                RookToPos = new Postion(king.row, 5);
+                kingMoveDir = Direction.East; 
+                to = new Postion(king.row, 6); // king end pos
+                RookFromPos = new Postion(king.row, 7); // rook start pos
+                RookToPos = new Postion(king.row, 5); // rook end pos
             }
-            else if(type == MoveType.CastleQS)
+            else if(type == MoveType.CastleQS) // queen side castle
             {
                 kingMoveDir = Direction.West;
-                to = new Postion(king.row, 2);
-                RookFromPos = new Postion(king.row, 0);
-                RookToPos = new Postion(king.row, 3);
+                to = new Postion(king.row, 2); // start king pos
+                RookFromPos = new Postion(king.row, 0); // start rook pos
+                RookToPos = new Postion(king.row, 3); // end rook pos
             }
         }
 
+
         public override bool Execute(Board board)
         {
-            new NormalMove(from,to).Execute(board);
-            new NormalMove(RookFromPos, RookToPos).Execute(board);
+            new NormalMove(from,to).Execute(board); // king move
+            new NormalMove(RookFromPos, RookToPos).Execute(board); // rook move
             return false;
         }
 

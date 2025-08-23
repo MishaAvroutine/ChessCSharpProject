@@ -19,6 +19,7 @@ namespace ChessLogic
             this.Reason = reason;
         }
 
+        
         public static Result Win(Player winner)
         {
             return new Result(winner, EndGame.CheckMate);

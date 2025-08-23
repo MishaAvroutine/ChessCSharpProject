@@ -263,6 +263,11 @@ namespace ChessUI
         }
 
 
+        /*
+         * function to set the cursor of the current player move
+         * input: the player who's turn is currently
+         * output: None
+        */
         private void SetCursor(Player player)
         {
             if(player == Player.White)
@@ -275,7 +280,11 @@ namespace ChessUI
             }
         }
 
-
+        /*
+         * function to check if any menu is on screen currently
+         * input: None
+         * output: True or False if the menu is on screen
+        */
         private bool IsMenuOnScreen()
         {
             return MenuContainer.Content != null;
@@ -283,6 +292,11 @@ namespace ChessUI
 
 
 
+        /*
+         * function to handle the game over situation
+         * input: None
+         * output: None
+        */
         private void ShowGameOver()
         {
             GameOverMenu gameOverMenu = new GameOverMenu(gameState);
@@ -311,5 +325,43 @@ namespace ChessUI
             SetCursor(gameState.CurrentPlayer);
 
         }
+
+
+        /*
+         * handle the window keydown event of escape to show the pause menu
+         * input: the object sender and the event
+         * ouput: None
+        */
+        private void Window_KeyDown(object sender, KeyEventArgs e)
+        {
+            if(!IsMenuOnScreen() && e.Key == Key.Escape)
+            {
+                ShowPauseMenu();
+            }
+        }
+
+
+        /*
+         * function to show the pause menu on the screen
+         * input: None
+         * output:None
+        */
+        private void ShowPauseMenu()
+        {
+            ControlMenu pauseMenu = new ControlMenu();
+
+            MenuContainer.Content = pauseMenu;
+
+            pauseMenu.option += op =>
+            {
+                MenuContainer.Content = null;
+
+                if (op == Option.Restart)
+                {
+                    RestartGame();
+                }
+            };
+        }
+
     }
 }
