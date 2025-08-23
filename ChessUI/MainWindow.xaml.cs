@@ -11,8 +11,20 @@ namespace ChessUI
     /// <summary>
     /// Interaction logic for MainWindow.xaml
     /// </summary>
+    /// 
+    public enum FenParts
+    {
+        Placement,        // 0 - Board piece positions
+        StartPlayer,      // 1 - Current player turn
+        Castling,         // 2 - Castling availability
+        EnPassant,        // 3 - En passant target square
+        HalfMoveClock,    // 4 - Half-move clock
+        FullMoveNumber    // 5 - Full move number
+    }
+
     public partial class MainWindow : Window
     {
+        private const string startFen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"; 
         public const int SIZE = 8;
         private readonly Image[,] PieceImages = new Image[SIZE, SIZE];
 
@@ -28,8 +40,25 @@ namespace ChessUI
         {
             InitializeComponent();
             InitilizeBoard();
-
-            gameState = new GameState(Player.White, Board.Inital());
+            string[] fenParts = startFen.Split(' ');
+            Player startPlayer = fenParts[(int)FenParts.StartPlayer] == "w" ? Player.White : Player.Black; 
+            
+            // Parse castling rights
+            bool whiteKingside = fenParts[(int)FenParts.Castling].Contains('K');
+            bool whiteQueenside = fenParts[(int)FenParts.Castling].Contains('Q');
+            bool blackKingside = fenParts[(int)FenParts.Castling].Contains('k');
+            bool blackQueenside = fenParts[(int)FenParts.Castling].Contains('q');
+            
+            // Parse en passant
+            Postion enPassant = ParsePosition(fenParts[(int)FenParts.EnPassant]);
+            
+            // Parse move counters
+            int halfMoveClock = int.Parse(fenParts[(int)FenParts.HalfMoveClock]);
+            int fullMoveNumber = int.Parse(fenParts[(int)FenParts.FullMoveNumber]);
+            
+            gameState = new GameState(startPlayer, Board.Inital(fenParts[(int)FenParts.Placement]), 
+                                     whiteKingside, whiteQueenside, blackKingside, blackQueenside,
+                                     enPassant, halfMoveClock, fullMoveNumber);
             DrawBoard(gameState.Board);
             SetCursor(gameState.CurrentPlayer);
         }
@@ -291,6 +320,33 @@ namespace ChessUI
         }
 
 
+        /*
+         * function to parse algebraic notation position (e.g., "e4" -> Postion object)
+         * input: algebraic notation string
+         * output: Postion object or null if invalid
+        */
+        private Postion ParsePosition(string pos)
+        {
+            if (pos == "-" || pos.Length != 2) return null;
+            int col = pos[0] - 'a'; // 'a' = 0, 'b' = 1, etc.
+            int row = 8 - (pos[1] - '0'); // '1' = 7, '2' = 6, etc.
+            return new Postion(row, col);
+        }
+
+        /*
+         * function to display the current FEN string in a message box for debugging
+         * input: none
+         * output: none
+        */
+        private void ShowCurrentFen()
+        {
+            if (gameState != null)
+            {
+                string currentFen = gameState.ToFen();
+                MessageBox.Show($"Current FEN: {currentFen}", "FEN String", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+        }
+
 
         /*
          * function to handle the game over situation
@@ -320,10 +376,27 @@ namespace ChessUI
         {
             HideHighLights();
             moveCache.Clear();
-            gameState = new GameState(Player.White,Board.Inital());
+            string[] fenParts = startFen.Split(' ');
+            Player startPlayer = fenParts[(int)FenParts.StartPlayer] == "w" ? Player.White : Player.Black;
+            
+            // Parse castling rights
+            bool whiteKingside = fenParts[(int)FenParts.Castling].Contains('K');
+            bool whiteQueenside = fenParts[(int)FenParts.Castling].Contains('Q');
+            bool blackKingside = fenParts[(int)FenParts.Castling].Contains('k');
+            bool blackQueenside = fenParts[(int)FenParts.Castling].Contains('q');
+            
+            // Parse en passant
+            Postion enPassant = ParsePosition(fenParts[(int)FenParts.EnPassant]);
+            
+            // Parse move counters
+            int halfMoveClock = int.Parse(fenParts[(int)FenParts.HalfMoveClock]);
+            int fullMoveNumber = int.Parse(fenParts[(int)FenParts.FullMoveNumber]);
+            
+            gameState = new GameState(startPlayer, Board.Inital(fenParts[(int)FenParts.Placement]), 
+                                     whiteKingside, whiteQueenside, blackKingside, blackQueenside,
+                                     enPassant, halfMoveClock, fullMoveNumber);
             DrawBoard(gameState.Board);
             SetCursor(gameState.CurrentPlayer);
-
         }
 
 
@@ -334,9 +407,16 @@ namespace ChessUI
         */
         private void Window_KeyDown(object sender, KeyEventArgs e)
         {
-            if(!IsMenuOnScreen() && e.Key == Key.Escape)
+            if(!IsMenuOnScreen())
             {
-                ShowPauseMenu();
+                if (e.Key == Key.Escape)
+                {
+                    ShowPauseMenu();
+                }
+                else if (e.Key == Key.F)
+                {
+                    ShowCurrentFen();
+                }
             }
         }
 
@@ -349,6 +429,7 @@ namespace ChessUI
         private void ShowPauseMenu()
         {
             ControlMenu pauseMenu = new ControlMenu();
+            pauseMenu.FenTextBox.Text = gameState.ToFen();
 
             MenuContainer.Content = pauseMenu;
 

@@ -21,6 +21,27 @@ namespace ChessLogic
         
 
         /*
+         * function to get the FEN character representation of the piece
+         * input: none
+         * output: FEN character (uppercase for white, lowercase for black)
+        */
+        public char ToFenChar()
+        {
+            char baseChar = Type switch
+            {
+                PieceType.King => 'k',
+                PieceType.Queen => 'q',
+                PieceType.Rook => 'r',
+                PieceType.Bishop => 'b',
+                PieceType.Knight => 'n',
+                PieceType.Pawn => 'p',
+                _ => '?'
+            };
+            
+            return Color == Player.White ? char.ToUpper(baseChar) : baseChar;
+        }
+
+        /*
          * function to get all the possible moves in a certain direction
          * input: the postion from/start the board and the direction of the move
          * output: the list of possible moves

@@ -1,8 +1,9 @@
-﻿namespace ChessLogic
+﻿using System.IO;
+
+namespace ChessLogic
 {
     public class Board
     {
-        private const string startFen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR";
         public const int SIZE = 8; 
         private readonly Piece[,] board = new Piece[SIZE,SIZE];
 
@@ -58,10 +59,10 @@
          * input:None
          * output:Noe
         */
-        public static Board Inital()
+        public static Board Inital(string placementFen)
         {
             Board board = new Board();
-            board.AddStartPieces(startFen);
+            board.AddStartPieces(placementFen);
             return board;
         }
 
@@ -122,6 +123,7 @@
                     file++;
                 }
             }
+            
         }
 
         /*

@@ -6,12 +6,13 @@
              xmlns:local="clr-namespace:ChessUI"
              mc:Ignorable="d" 
              d:DesignHeight="450" d:DesignWidth="800">
-    <Border Width="285"
+    <Border Width="350"
             Height="125"
             Style="{StaticResource BorderStyle}">
         <Grid x:Name="OptionGrid">
             <Grid.RowDefinitions>
                 <RowDefinition Height="*"/>
+                <RowDefinition Height="1*"/>
                 <RowDefinition Height="1.5*"/>
             </Grid.RowDefinitions>
             <Grid.ColumnDefinitions>
@@ -22,6 +23,9 @@
             <TextBlock Text="SELECT OPTION" Grid.Row="0" Grid.ColumnSpan="2"
                        Style="{StaticResource TextStyle}"
                        FontSize="28"/>
+
+            <TextBlock x:Name="FenTextBox" Grid.Row="1" Text="FEN:" Style="{StaticResource TextStyle}" Grid.ColumnSpan="2"
+                       FontSize="10"/>
 
             <Button Grid.Row="2"
                     Content="Continue"

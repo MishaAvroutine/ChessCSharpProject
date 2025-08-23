@@ -11,12 +11,29 @@ namespace ChessLogic
 
         public Result Result { get; private set; } = null;
 
-        private int MoveCountWithoutAnyCapturesOrPawnMoves = 0;
 
-        public GameState(Player player,Board board)
+        public bool WhiteCanCastleKingside { get; private set; } = true;
+        public bool WhiteCanCastleQueenside { get; private set; } = true;
+        public bool BlackCanCastleKingside { get; private set; } = true;
+        public bool BlackCanCastleQueenside { get; private set; } = true;
+
+        public Postion EnPassantTarget { get; private set; } = null;
+        public int HalfMoveClock { get; private set; } = 0;
+        public int FullMoveNumber { get; private set; } = 1;
+
+        public GameState(Player player, Board board, bool whiteKingside = true, bool whiteQueenside = true, 
+                         bool blackKingside = true, bool blackQueenside = true, Postion enPassant = null, 
+                         int halfMoveClock = 0, int fullMoveNumber = 1)
         {
             CurrentPlayer = player;
             Board = board;
+            WhiteCanCastleKingside = whiteKingside;
+            WhiteCanCastleQueenside = whiteQueenside;
+            BlackCanCastleKingside = blackKingside;
+            BlackCanCastleQueenside = blackQueenside;
+            EnPassantTarget = enPassant;
+            HalfMoveClock = halfMoveClock;
+            FullMoveNumber = fullMoveNumber;
         }
 
         /*
@@ -45,20 +62,96 @@ namespace ChessLogic
         */
         public void MakeMove(Move move)
         {
-            Board.SetPawnSkippedPosition(CurrentPlayer,null);
+            // Update castling rights before making the move
+            UpdateCastlingRights(move);
+            
+            // Update en passant target
+            UpdateEnPassantTarget(move);
+            
+            // Execute the move
+            Board.SetPawnSkippedPosition(CurrentPlayer, null);
             bool captured = move.Execute(Board);
-            if(captured)
+            
+            // Update move counters
+            if (captured || move.Type == MoveType.PawnPromotion || move.Type == MoveType.DoublePawn)
             {
-                MoveCountWithoutAnyCapturesOrPawnMoves = 0;
+                HalfMoveClock = 0;
             }
             else
             {
-                MoveCountWithoutAnyCapturesOrPawnMoves++;
+                HalfMoveClock++;
             }
+            
+            // Update full move number after Black's move
+            if (CurrentPlayer == Player.Black)
+            {
+                FullMoveNumber++;
+            }
+            
             CurrentPlayer = CurrentPlayer.Opponent();
             CheckForGameOver();
         }
 
+        /*
+         * function to update castling rights based on the move made
+         * input: the move that was made
+         * output: none
+        */
+        private void UpdateCastlingRights(Move move)
+        {
+            // If king moves, lose all castling rights for that player
+            if (Board[move.from]?.Type == PieceType.King)
+            {
+                if (CurrentPlayer == Player.White)
+                {
+                    WhiteCanCastleKingside = false;
+                    WhiteCanCastleQueenside = false;
+                }
+                else
+                {
+                    BlackCanCastleKingside = false;
+                    BlackCanCastleQueenside = false;
+                }
+            }
+            
+            // If rook moves, lose castling rights for that side
+            if (Board[move.from]?.Type == PieceType.Rook)
+            {
+                if (CurrentPlayer == Player.White)
+                {
+                    if (move.from.column == 0) // Queenside rook
+                        WhiteCanCastleQueenside = false;
+                    else if (move.from.column == 7) // Kingside rook
+                        WhiteCanCastleKingside = false;
+                }
+                else
+                {
+                    if (move.from.column == 0) // Queenside rook
+                        BlackCanCastleQueenside = false;
+                    else if (move.from.column == 7) // Kingside rook
+                        BlackCanCastleKingside = false;
+                }
+            }
+        }
+
+        /*
+         * function to update en passant target based on the move made
+         * input: the move that was made
+         * output: none
+        */
+        private void UpdateEnPassantTarget(Move move)
+        {
+            // Clear previous en passant target
+            EnPassantTarget = null;
+            
+            // Set new en passant target for double pawn moves
+            if (move.Type == MoveType.DoublePawn)
+            {
+                // Calculate the square that was jumped over
+                int direction = CurrentPlayer == Player.White ? -1 : 1;
+                EnPassantTarget = new Postion(move.from.row + direction, move.from.column);
+            }
+        }
 
 
         /*
@@ -101,12 +194,101 @@ namespace ChessLogic
             {
                 Result = Result.Draw(EndGame.FiftyMoveRule);
             }
-            else if (Board.InsufficientMaterial())
-            {
-                Result = Result.Draw(EndGame.InsufficientMaterial);
-            }
         }
 
+        /*
+         * function to export the current game state to FEN format
+         * input: none
+         * output: FEN string representation of the current position
+        */
+        public string ToFen()
+        {
+            // Build placement string
+            string placement = BuildPlacementString();
+            
+            // Current player
+            string currentPlayer = CurrentPlayer == Player.White ? "w" : "b";
+            
+            // Castling rights
+            string castling = BuildCastlingString();
+            
+            // En passant
+            string enPassant = EnPassantTarget == null ? "-" : PositionToAlgebraic(EnPassantTarget);
+            
+            // Move counters
+            string halfMoveClock = HalfMoveClock.ToString();
+            string fullMoveNumber = FullMoveNumber.ToString();
+            
+            return $"{placement} {currentPlayer} {castling} {enPassant} {halfMoveClock} {fullMoveNumber}";
+        }
+
+        /*
+         * function to build the placement part of FEN string
+         * input: none
+         * output: placement string (e.g., "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR")
+        */
+        private string BuildPlacementString()
+        {
+            string result = "";
+            for (int row = 0; row < Board.SIZE; row++)
+            {
+                int emptyCount = 0;
+                for (int col = 0; col < Board.SIZE; col++)
+                {
+                    Piece piece = Board[row, col];
+                    if (piece == null)
+                    {
+                        emptyCount++;
+                    }
+                    else
+                    {
+                        if (emptyCount > 0)
+                        {
+                            result += emptyCount.ToString();
+                            emptyCount = 0;
+                        }
+                        result += piece.ToFenChar();
+                    }
+                }
+                if (emptyCount > 0)
+                {
+                    result += emptyCount.ToString();
+                }
+                if (row < Board.SIZE - 1)
+                {
+                    result += "/";
+                }
+            }
+            return result;
+        }
+
+        /*
+         * function to build the castling rights part of FEN string
+         * input: none
+         * output: castling string (e.g., "KQkq" or "-")
+        */
+        private string BuildCastlingString()
+        {
+            string result = "";
+            if (WhiteCanCastleKingside) result += "K";
+            if (WhiteCanCastleQueenside) result += "Q";
+            if (BlackCanCastleKingside) result += "k";
+            if (BlackCanCastleQueenside) result += "q";
+            
+            return result.Length > 0 ? result : "-";
+        }
+
+        /*
+         * function to convert a position to algebraic notation
+         * input: position
+         * output: algebraic notation string (e.g., "e4")
+        */
+        private string PositionToAlgebraic(Postion pos)
+        {
+            char file = (char)('a' + pos.column);
+            char rank = (char)('0' + (8 - pos.row));
+            return $"{file}{rank}";
+        }
 
         /*
          * function to check game is over by checking if result is set
@@ -125,8 +307,7 @@ namespace ChessLogic
         */
         private bool FiftyRuleMove()
         {
-            int fullMoves = MoveCountWithoutAnyCapturesOrPawnMoves / NUM_OF_PLAYERS;
-            return fullMoves == MAX_MOVES_WITHOUT_ANY_CAPTURES;
+            return HalfMoveClock == MAX_MOVES_WITHOUT_ANY_CAPTURES;
         }
     }
 }
