@@ -41,6 +41,7 @@ namespace ChessLogic
         */
         public void MakeMove(Move move)
         {
+            Board.SetPawnSkippedPosition(CurrentPlayer,null);
             move.Execute(Board);
             CurrentPlayer = CurrentPlayer.Opponent();
             CheckForGameOver();

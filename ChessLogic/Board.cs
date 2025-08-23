@@ -4,7 +4,14 @@
     {
         private const string startFen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR";
         public const int SIZE = 8; 
-        private readonly Piece[,] board = new Piece[SIZE,SIZE]; 
+        private readonly Piece[,] board = new Piece[SIZE,SIZE];
+
+
+        private readonly Dictionary<Player, Postion> pawnSkipPositions = new Dictionary<Player, Postion>()
+        {
+            {Player.White, null }
+            , {Player.Black, null }
+        };
 
         // get the piece at the position using row,col
         public Piece this[int row,int col] { 
@@ -31,6 +38,17 @@
                 if (pos == null) return;
                 this[pos.row, pos.column] = value; 
             }
+        }
+
+
+        public Postion GetPawnSkippedPosition(Player player)
+        {
+            return pawnSkipPositions[player];
+        }
+
+        public void SetPawnSkippedPosition(Player player,Postion pos)
+        {
+            pawnSkipPositions[player] = pos;
         }
 
 

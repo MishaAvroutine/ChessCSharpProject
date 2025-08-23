@@ -1,4 +1,4 @@
-﻿using System;
+﻿ using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
@@ -87,7 +87,7 @@ namespace ChessLogic
                 Postion twoMovesPosition = oneMovePos + forward;
                 if (!HasMoved && CanMoveTo(twoMovesPosition, board))
                 {
-                    yield return new NormalMove(from, twoMovesPosition);
+                    yield return new DoublePawn(from, twoMovesPosition);
                 }
             }
         }
@@ -102,8 +102,11 @@ namespace ChessLogic
             foreach(Direction dir in new Direction[] {Direction.West,Direction.East})
             {
                 Postion to = from + forward + dir;
-
-                if(CanCapture(to,board))
+                if(to == board.GetPawnSkippedPosition(Color.Opponent()))
+                {
+                    yield return new EnPassant(from, to);
+                }
+                else if(CanCapture(to,board))
                 {
                     if (to.row == 0 || to.row == 7) // pawn promotion
                     {
