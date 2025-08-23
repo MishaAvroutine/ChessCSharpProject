@@ -12,6 +12,22 @@ A fully-featured chess game built with C# and WPF, featuring a complete chess en
 - **Asset Management**: High-quality piece images and custom cursors
 - **Keyboard Shortcuts**: Quick access to game controls and FEN display
 
+## 📷 Screenshots
+
+![Chess Game Interface](ChessUI/Assets/screenshots/Game.png)
+
+### Move Highlighting
+
+![Pause Menu Display](ChessUI/Assets/screenshots/PauseMenu.png)
+
+### Promotion Dialog
+
+![Pawn Promotion](ChessUI/Assets/screenshots/Promotion.png)
+
+### Game Over Screen
+
+![Game Over State](ChessUI/Assets/screenshots/Win.png)
+
 ## 🚀 Getting Started
 
 ### Prerequisites
@@ -23,17 +39,18 @@ A fully-featured chess game built with C# and WPF, featuring a complete chess en
 ### Installation
 
 1. **Clone the repository**:
+
    ```bash
    git clone <your-repository-url>
    cd ChessCsharpProject
    ```
-
 2. **Build the solution**:
+
    ```bash
    dotnet build
    ```
-
 3. **Run the application**:
+
    ```bash
    dotnet run --project ChessUI
    ```
@@ -80,12 +97,14 @@ ChessCsharpProject/
 ## 🎮 How to Play
 
 ### Basic Controls
+
 - **Mouse Click**: Select pieces and make moves
 - **Escape Key**: Open pause menu
 - **F Key**: Display current FEN notation
 - **R Key**: Restart game (from pause menu)
 
 ### Game Features
+
 - **Piece Selection**: Click on a piece to see legal moves highlighted
 - **Move Execution**: Click on a highlighted square to make a move
 - **Pawn Promotion**: Automatically prompts for piece selection
@@ -95,6 +114,7 @@ ChessCsharpProject/
 ## 🔧 Technical Details
 
 ### FEN Notation Support
+
 The application fully supports the standard chess FEN (Forsyth-Edwards Notation) format:
 
 ```
@@ -102,6 +122,7 @@ rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1
 ```
 
 **Components:**
+
 1. **Placement**: Board piece positions
 2. **StartPlayer**: Current player turn (w/b)
 3. **Castling**: Available castling rights (KQkq)
@@ -110,6 +131,7 @@ rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1
 6. **FullMoveNumber**: Complete move counter
 
 ### Architecture
+
 - **ChessLogic**: Pure C# library with no external dependencies
 - **ChessUI**: WPF application using standard Windows controls
 - **Separation of Concerns**: Engine logic completely separated from UI
@@ -118,20 +140,24 @@ rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1
 ## 📦 Dependencies
 
 ### Required Packages
+
 - **Microsoft.NET.Sdk** (9.0)
 - **Microsoft.NET.Sdk.WindowsDesktop** (for WPF support)
 
 ### Target Frameworks
+
 - **ChessLogic**: `net9.0`
 - **ChessUI**: `net9.0-windows`
 
 ### External Dependencies
+
 - **None** - All chess logic is implemented from scratch
 - **WPF** - Built-in Windows Presentation Foundation
 
 ## 🚀 Development
 
 ### Building from Source
+
 ```bash
 # Restore packages
 dotnet restore
@@ -147,6 +173,7 @@ dotnet clean
 ```
 
 ### Running Tests
+
 ```bash
 # Run all tests (if test project exists)
 dotnet test
@@ -156,6 +183,7 @@ dotnet test --project ChessLogic.Tests
 ```
 
 ### Code Quality
+
 - **C# 9.0+** features used throughout
 - **Nullable reference types** enabled
 - **Implicit usings** enabled for cleaner code
@@ -166,21 +194,23 @@ dotnet test --project ChessLogic.Tests
 ### Common Issues
 
 1. **Build Errors**:
+
    - Ensure .NET 9.0 SDK is installed
    - Run `dotnet --version` to verify installation
    - Try `dotnet clean` followed by `dotnet restore`
-
 2. **Runtime Errors**:
+
    - Check Windows version compatibility
    - Ensure WPF is available on your system
    - Verify all asset files are present
-
 3. **Performance Issues**:
+
    - Close other applications to free memory
    - Check Windows graphics drivers
    - Monitor system resources during gameplay
 
 ### Debug Mode
+
 ```bash
 # Run with detailed logging
 dotnet run --project ChessUI --configuration Debug
@@ -204,6 +234,7 @@ This project is open source. Please check the LICENSE file for specific terms.
 ## 📞 Support
 
 For issues, questions, or contributions:
+
 - Create an issue in the repository
 - Check existing documentation
 - Review the code comments for implementation details
