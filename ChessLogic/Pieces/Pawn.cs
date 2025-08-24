@@ -41,7 +41,7 @@ namespace ChessLogic
          * input: the postion from object, the board object
          * output: true or false if it can move there
         */
-        public static bool CanMoveTo(Postion pos,Board board)
+        public static bool CanMoveTo(Position pos,Board board)
         {
             return Board.IsInside(pos) && board.IsEmpty(pos);
         }
@@ -53,7 +53,7 @@ namespace ChessLogic
          * input: the pos to move to, the board
          * ouput: True or False if the pawn can capture
         */
-        private bool CanCapture(Postion pos,Board board)
+        private bool CanCapture(Position pos,Board board)
         {
             if (!Board.IsInside(pos) || board.IsEmpty(pos)) return false;
 
@@ -66,9 +66,9 @@ namespace ChessLogic
          * input: the pos from and the board
          * output: list of possible forward
         */
-        private IEnumerable<Move> ForwardMoves(Postion from, Board board)
+        private IEnumerable<Move> ForwardMoves(Position from, Board board)
         {
-            Postion oneMovePos = from + forward;
+            Position oneMovePos = from + forward;
 
             if (CanMoveTo(oneMovePos, board))
             {
@@ -84,7 +84,7 @@ namespace ChessLogic
                     yield return new NormalMove(from, oneMovePos);
                 }
 
-                Postion twoMovesPosition = oneMovePos + forward;
+                Position twoMovesPosition = oneMovePos + forward;
                 if (!HasMoved && CanMoveTo(twoMovesPosition, board))
                 {
                     yield return new DoublePawn(from, twoMovesPosition);
@@ -97,11 +97,11 @@ namespace ChessLogic
          * input: the pos from and the board
          * output: list of possible diogonal moves aka capture or en passant
         */
-        private IEnumerable<Move> DiagonalMoves(Postion from,Board board)
+        private IEnumerable<Move> DiagonalMoves(Position from,Board board)
         {
             foreach(Direction dir in new Direction[] {Direction.West,Direction.East})
             {
-                Postion to = from + forward + dir;
+                Position to = from + forward + dir;
                 if(to == board.GetPawnSkippedPosition(Color.Opponent()))
                 {
                     yield return new EnPassant(from, to);
@@ -123,12 +123,12 @@ namespace ChessLogic
             }
         }
 
-        public override IEnumerable<Move> GetMoves(Postion from, Board board)  
+        public override IEnumerable<Move> GetMoves(Position from, Board board)  
         {
             return ForwardMoves(from,board).Concat(DiagonalMoves(from, board));
         }
 
-        public override bool CanCaptureOpponnentKing(Postion from, Board board)
+        public override bool CanCaptureOpponnentKing(Position from, Board board)
         {
             return DiagonalMoves(from, board).Any(move =>
             {
@@ -137,7 +137,7 @@ namespace ChessLogic
             });
         }
 
-        private static IEnumerable<Move> PromotionMoves(Postion from,Postion to)
+        private static IEnumerable<Move> PromotionMoves(Position from,Position to)
         {
             yield return new PawnPromotion(from,PieceType.Knight,to);
             yield return new PawnPromotion(from,PieceType.Queen,to);

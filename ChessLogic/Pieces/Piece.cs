@@ -17,7 +17,7 @@ namespace ChessLogic
         public abstract Piece Copy();
 
         // abstarct method to get all the posibble moves from the start postion
-        public abstract IEnumerable<Move> GetMoves(Postion from,Board board);
+        public abstract IEnumerable<Move> GetMoves(Position from,Board board);
         
 
         /*
@@ -46,9 +46,9 @@ namespace ChessLogic
          * input: the postion from/start the board and the direction of the move
          * output: the list of possible moves
         */
-        protected IEnumerable<Postion> MovesPositionsInDir(Postion from,Board board,Direction dir)
+        protected IEnumerable<Position> MovesPositionsInDir(Position from,Board board,Direction dir)
         {
-            for(Postion pos = from + dir;Board.IsInside(pos);pos = pos + dir)
+            for(Position pos = from + dir;Board.IsInside(pos);pos = pos + dir)
             {
                 if(board.IsEmpty(pos))
                 {
@@ -66,7 +66,7 @@ namespace ChessLogic
         }
 
         // returns the possible moves in multiple directions
-        protected IEnumerable<Postion> MovesPositionInDirs(Postion from,Board board,Direction[] directions)
+        protected IEnumerable<Position> MovesPositionInDirs(Position from,Board board,Direction[] directions)
         {
             return directions.SelectMany(dir => MovesPositionsInDir(from, board, dir));
         }
@@ -78,7 +78,7 @@ namespace ChessLogic
          * input: the from pos, the board
          * ouput: True or false if able to capture any king
         */
-        public virtual bool CanCaptureOpponnentKing(Postion from,Board board)
+        public virtual bool CanCaptureOpponnentKing(Position from,Board board)
         {
             return GetMoves(from,board).Any(move =>
             {

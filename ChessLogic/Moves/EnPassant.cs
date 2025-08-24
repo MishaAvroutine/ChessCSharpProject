@@ -10,17 +10,17 @@ namespace ChessLogic
     {
         public override MoveType Type => MoveType.EnPassant;
 
-        public override Postion from { get; }
-        public override Postion to { get; }
+        public override Position from { get; }
+        public override Position to { get; }
 
-        private readonly Postion capturePos;
+        private readonly Position capturePos;
 
-        public EnPassant(Postion from, Postion to)
+        public EnPassant(Position from, Position to)
         {
             this.from = from;
             this.to = to;
 
-            capturePos = new Postion(from.row, to.column); // diagonal
+            capturePos = new Position(from.row, to.column); // diagonal
         }
 
 

@@ -8,7 +8,7 @@ namespace ChessLogic
         private readonly Piece[,] board = new Piece[SIZE,SIZE];
 
 
-        private readonly Dictionary<Player, Postion> pawnSkipPositions = new Dictionary<Player, Postion>()
+        private readonly Dictionary<Player, Position> pawnSkipPositions = new Dictionary<Player, Position>()
         {
             {Player.White, null }
             , {Player.Black, null }
@@ -41,7 +41,7 @@ namespace ChessLogic
         }
 
         // get the piece at the position using the postion class object
-        public Piece this[Postion pos]
+        public Piece this[Position pos]
         {
             get { 
                 if (pos == null) return null;
@@ -54,12 +54,12 @@ namespace ChessLogic
         }
 
 
-        public Postion GetPawnSkippedPosition(Player player)
+        public Position GetPawnSkippedPosition(Player player)
         {
             return pawnSkipPositions[player];
         }
 
-        public void SetPawnSkippedPosition(Player player,Postion pos)
+        public void SetPawnSkippedPosition(Player player,Position pos)
         {
             pawnSkipPositions[player] = pos;
         }
@@ -142,7 +142,7 @@ namespace ChessLogic
          * input: the position
          * ouput: True or False if inside the board
         */
-        public static bool IsInside(Postion pos)
+        public static bool IsInside(Position pos)
         {
             if (pos == null) return false;
             return pos.row < SIZE && pos.row >= 0 && pos.column < SIZE && pos.column >= 0;
@@ -154,7 +154,7 @@ namespace ChessLogic
          * input: the position
          * ouput: True or False if the board at that position is empty
         */
-        public bool IsEmpty(Postion pos)
+        public bool IsEmpty(Position pos)
         {
             return this[pos] == null;
         }
@@ -165,14 +165,14 @@ namespace ChessLogic
          * input: None
          * ouput: all the locations of all the pieces on the board
         */
-        public IEnumerable<Postion> PiecePositions()
+        public IEnumerable<Position> PiecePositions()
         {
             for (int i = 0; i < SIZE; i++)
             {
                 for (int j = 0; j < SIZE; j++)
                 {
                     if (board[i, j] == null) continue;
-                    yield return new Postion(i, j);
+                    yield return new Position(i, j);
                 }
             }
         }
@@ -183,7 +183,7 @@ namespace ChessLogic
          * input: the player
          * ouput: all the pieces location of a singal player
         */
-        public IEnumerable<Postion> PiecePositionsFor(Player player)
+        public IEnumerable<Position> PiecePositionsFor(Player player)
         {
             return PiecePositions().Where(pos => this[pos].Color == player);
         }
@@ -213,7 +213,7 @@ namespace ChessLogic
         {
             Board copy = new Board();
 
-            foreach (Postion pos in PiecePositions())
+            foreach (Position pos in PiecePositions())
             {
                 copy[pos] = this[pos].Copy();
             }
@@ -225,7 +225,7 @@ namespace ChessLogic
         {
             Counting counting = new Counting();
 
-            foreach(Postion pos in PiecePositions())
+            foreach(Position pos in PiecePositions())
             {
                 Piece piece = this[pos];
                 counting.Increment(piece.Color,piece.Type);
@@ -262,13 +262,13 @@ namespace ChessLogic
             if (count.TotalCount != 4) return false;
             if(count.White(PieceType.Bishop) != 1 || count.Black(PieceType.Bishop) != 1) return false;
 
-            Postion wBishopPos = FindPiece(Player.White, PieceType.Bishop);
-            Postion bBishopPos = FindPiece(Player.Black, PieceType.Bishop);
+            Position wBishopPos = FindPiece(Player.White, PieceType.Bishop);
+            Position bBishopPos = FindPiece(Player.Black, PieceType.Bishop);
             return wBishopPos.SquareColor() == bBishopPos.SquareColor();
         }
 
 
-        public Postion FindPiece(Player color, PieceType piece)
+        public Position FindPiece(Player color, PieceType piece)
         {
             return PiecePositionsFor(color).First(pos => this[pos].Type == piece);
         }

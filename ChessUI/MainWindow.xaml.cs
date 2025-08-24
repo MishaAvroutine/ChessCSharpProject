@@ -15,12 +15,12 @@ namespace ChessUI
     /// 
     public enum FenParts
     {
-        Placement,        // 0 - Board piece positions
-        StartPlayer,      // 1 - Current player turn
-        Castling,         // 2 - Castling availability
-        EnPassant,        // 3 - En passant target square
-        HalfMoveClock,    // 4 - Half-move clock
-        FullMoveNumber    // 5 - Full move number
+        Placement,       
+        StartPlayer,      
+        Castling,        
+        EnPassant,        
+        HalfMoveClock,    
+        FullMoveNumber 
     }
 
 
@@ -31,6 +31,16 @@ namespace ChessUI
         Bullet = 1
     }
 
+    /*
+     * funny fen postion for testing
+     * RRRRRRR1/7k/8/8/8/8/3K4/7R b - - 0 1
+     * pppppppp/pppppppp/pppppppp/PppPPpPp/PppPPpPp/PPpPPpPP/pppppppp/pppppppp w - - 0 1
+     * RRRRRRRK/pPBBBBPP/pbPBBPBP/pbbPPBBP/pbbppBBP/pbpbbpBP/ppbbbbpP/krrrrrrr w - - 0 1
+     * Q2QQ1Q1/1Q4Q1/Q1Q3Q1/QQ4Q1/QQQ1Q3/7r/5k2/7K w - - 0 1
+     * 
+     * 
+     * 
+     */
     public partial class MainWindow : Window
     {
         private const string startFen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"; 
@@ -38,7 +48,7 @@ namespace ChessUI
         private readonly Image[,] PieceImages = new Image[SIZE, SIZE];
 
         private readonly Rectangle[,] HighLights = new Rectangle[SIZE, SIZE];
-        private readonly Dictionary<Postion,Move> moveCache = new Dictionary<Postion,Move>();
+        private readonly Dictionary<Position,Move> moveCache = new Dictionary<Position,Move>();
 
 
         // the main gamestate variable with the board and move execusion
@@ -52,7 +62,7 @@ namespace ChessUI
 
         private int storedMinutes = (int)Modes.Regular;
 
-        private Postion selecetedPos = null;
+        private Position selecetedPos = null;
         public MainWindow()
         {
             InitializeComponent();
@@ -67,7 +77,7 @@ namespace ChessUI
             bool blackQueenside = fenParts[(int)FenParts.Castling].Contains('q');
             
             // Parse en passant
-            Postion enPassant = ParsePosition(fenParts[(int)FenParts.EnPassant]);
+            Position enPassant = ParsePosition(fenParts[(int)FenParts.EnPassant]);
             
             // Parse move counters
             int halfMoveClock = int.Parse(fenParts[(int)FenParts.HalfMoveClock]);
@@ -141,7 +151,7 @@ namespace ChessUI
          * input: None
          * output: None
         */
-        public void InitilizeBoard()
+    public void InitilizeBoard()
         {
             for(int row =0; row < SIZE;row++)
             {
@@ -188,7 +198,7 @@ namespace ChessUI
             if (IsMenuOnScreen()) return;
 
             Point point = e.GetPosition(BoardGrid);
-            Postion pos = ToSquarePosition(point);
+            Position pos = ToSquarePosition(point);
 
             if(selecetedPos == null)
             {
@@ -206,13 +216,13 @@ namespace ChessUI
          * input: the point in the ui
          * output: a new Position object which stores the position chosen in the chess board
         */
-        private Postion ToSquarePosition(Point point)
+        private Position ToSquarePosition(Point point)
         {
             double squareSize = BoardGrid.ActualWidth / SIZE;
             int row = (int)(point.Y / squareSize);
             int col = (int)(point.X / squareSize);
 
-            return new Postion(row, col);
+            return new Position(row, col);
         }
 
 
@@ -221,7 +231,7 @@ namespace ChessUI
          * input: The position of the piece
          * ouput: None
         */
-        private void OnFromPostionSelected(Postion pos)
+        private void OnFromPostionSelected(Position pos)
         {
             try
             {
@@ -311,7 +321,7 @@ namespace ChessUI
          * input: the position of the move that ischosen to do
          * output: None
         */
-        private void OnToPostionSelected(Postion pos)
+        private void OnToPostionSelected(Position pos)
         {
             selecetedPos = null;
             HideHighLights();
@@ -328,7 +338,7 @@ namespace ChessUI
 
             }
         }
-        private void HandlePromotion(Postion from,Postion to)
+        private void HandlePromotion(Position from,Position to)
         {
             PieceImages[to.row, to.column].Source = Images.GetImage(gameState.CurrentPlayer, PieceType.Pawn);
             PieceImages[from.row, from.column].Source = null;
@@ -374,7 +384,7 @@ namespace ChessUI
             HideHighLights();
             Color HighLightColor = Color.FromArgb(175, 49, 216, 229);
             Color CheckHighLight = Color.FromArgb(175, 94, 10, 5);
-            Postion kingPos = gameState.Board.FindPiece(gameState.CurrentPlayer, PieceType.King);
+            Position kingPos = gameState.Board.FindPiece(gameState.CurrentPlayer, PieceType.King);
             if(gameState.Board.IsInCheck(gameState.CurrentPlayer))
             {
                 SolidColorBrush brush = new SolidColorBrush(CheckHighLight);
@@ -390,7 +400,7 @@ namespace ChessUI
                 };
                 brush.BeginAnimation(SolidColorBrush.ColorProperty, anim);
             }
-            foreach (Postion to in moveCache.Keys)
+            foreach (Position to in moveCache.Keys)
             {
                 HighLights[to.row, to.column].Fill = new SolidColorBrush(HighLightColor);
             }
@@ -457,12 +467,12 @@ namespace ChessUI
          * input: algebraic notation string
          * output: Postion object or null if invalid
         */
-        private Postion ParsePosition(string pos)
+        private Position ParsePosition(string pos)
         {
             if (pos == "-" || pos.Length != 2) return null;
             int col = pos[0] - 'a'; // 'a' = 0, 'b' = 1, etc.
             int row = 8 - (pos[1] - '0'); // '1' = 7, '2' = 6, etc.
-            return new Postion(row, col);
+            return new Position(row, col);
         }
 
         /*
@@ -529,7 +539,7 @@ namespace ChessUI
             bool blackQueenside = fenParts[(int)FenParts.Castling].Contains('q');
             
             // Parse en passant
-            Postion enPassant = ParsePosition(fenParts[(int)FenParts.EnPassant]);
+            Position enPassant = ParsePosition(fenParts[(int)FenParts.EnPassant]);
             
             // Parse move counters
             int halfMoveClock = int.Parse(fenParts[(int)FenParts.HalfMoveClock]);

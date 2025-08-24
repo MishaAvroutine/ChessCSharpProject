@@ -15,12 +15,12 @@
         public bool BlackCanCastleKingside { get; private set; } = true;
         public bool BlackCanCastleQueenside { get; private set; } = true;
 
-        public Postion EnPassantTarget { get; private set; } = null;
+        public Position EnPassantTarget { get; private set; } = null;
         public int HalfMoveClock { get; private set; } = 0;
         public int FullMoveNumber { get; private set; } = 1;
 
         public GameState(Player player, Board board, bool whiteKingside = true, bool whiteQueenside = true, 
-                         bool blackKingside = true, bool blackQueenside = true, Postion enPassant = null, 
+                         bool blackKingside = true, bool blackQueenside = true, Position enPassant = null, 
                          int halfMoveClock = 0, int fullMoveNumber = 1)
         {
             CurrentPlayer = player;
@@ -39,7 +39,7 @@
          * input: the position to move to
          * output: the list of legal moves
         */
-        public IEnumerable<Move> LegalMovesForPiece(Postion pos)
+        public IEnumerable<Move> LegalMovesForPiece(Position pos)
         {
             if(Board.IsEmpty(pos) || Board[pos].Color != CurrentPlayer)
             {
@@ -147,7 +147,7 @@
             {
                 // Calculate the square that was jumped over
                 int direction = CurrentPlayer == Player.White ? -1 : 1;
-                EnPassantTarget = new Postion(move.from.row + direction, move.from.column);
+                EnPassantTarget = new Position(move.from.row + direction, move.from.column);
             }
         }
 
@@ -282,7 +282,7 @@
          * input: position
          * output: algebraic notation string (e.g., "e4")
         */
-        private string PositionToAlgebraic(Postion pos)
+        private string PositionToAlgebraic(Position pos)
         {
             char file = (char)('a' + pos.column);
             char rank = (char)('0' + (8 - pos.row));

@@ -3,13 +3,13 @@
     public class PawnPromotion : Move
     {
         public override MoveType Type => MoveType.PawnPromotion;
-        public override Postion from { get; }
-        public override Postion to { get; }
+        public override Position from { get; }
+        public override Position to { get; }
 
         private readonly PieceType newType;
 
 
-        public PawnPromotion(Postion fr, PieceType newType,Postion to)
+        public PawnPromotion(Position fr, PieceType newType,Position to)
         {
             this.from = fr;
             this.newType = newType;

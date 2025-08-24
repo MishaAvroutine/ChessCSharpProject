@@ -5,16 +5,16 @@
 
         public override MoveType Type => MoveType.DoublePawn;
 
-        public override Postion from { get; }
-        public override Postion to { get; }
+        public override Position from { get; }
+        public override Position to { get; }
 
-        private readonly Postion skippedPos;
+        private readonly Position skippedPos;
 
-        public DoublePawn(Postion from,Postion to)
+        public DoublePawn(Position from,Position to)
         {
             this.from = from;
             this.to = to;
-            skippedPos = new Postion((from.row + to.row) / 2, from.column); // double move skipped position
+            skippedPos = new Position((from.row + to.row) / 2, from.column); // double move skipped position
         }
 
         public override bool Execute(Board board)

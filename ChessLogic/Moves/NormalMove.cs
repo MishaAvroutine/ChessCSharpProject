@@ -10,10 +10,10 @@ namespace ChessLogic
     {
         public override MoveType Type => MoveType.Normal;
 
-        public override Postion from { get; }
-        public override Postion to { get; }
+        public override Position from { get; }
+        public override Position to { get; }
 
-        public NormalMove(Postion from, Postion to)
+        public NormalMove(Position from, Position to)
         {
             this.to = to;
             this.from = from;

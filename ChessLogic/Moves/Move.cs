@@ -3,8 +3,8 @@
     public abstract class Move
     {
         public abstract MoveType Type {get;}
-        public abstract Postion from {get;}
-        public abstract Postion to {get;}
+        public abstract Position from {get;}
+        public abstract Position to {get;}
 
 
         // abstract method to execute move

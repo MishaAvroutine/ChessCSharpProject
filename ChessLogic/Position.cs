@@ -3,14 +3,14 @@
 
 namespace ChessLogic
 {
-    public class Postion
+    public class Position
     {
         public int row { get; }
         public int column { get; }
 
 
         // constructor
-        public Postion(int row, int column)
+        public Position(int row, int column)
         {
             this.row = row;
             this.column = column;
@@ -28,7 +28,7 @@ namespace ChessLogic
 
         public override bool Equals(object obj)
         {
-            return obj is Postion postion &&
+            return obj is Position postion &&
                    row == postion.row &&
                    column == postion.column;
         }
@@ -38,19 +38,19 @@ namespace ChessLogic
             return HashCode.Combine(row, column);
         }
 
-        public static bool operator ==(Postion left, Postion right)
+        public static bool operator ==(Position left, Position right)
         {
-            return EqualityComparer<Postion>.Default.Equals(left, right);
+            return EqualityComparer<Position>.Default.Equals(left, right);
         }
 
-        public static bool operator !=(Postion left, Postion right)
+        public static bool operator !=(Position left, Position right)
         {
             return !(left == right);
         }
 
-        public static Postion operator +(Postion pos,Direction direction)
+        public static Position operator +(Position pos,Direction direction)
         {
-           return new Postion(pos.row + direction.RowDelta, pos.column + direction.ColumnDelta);
+           return new Position(pos.row + direction.RowDelta, pos.column + direction.ColumnDelta);
         }
 
     }

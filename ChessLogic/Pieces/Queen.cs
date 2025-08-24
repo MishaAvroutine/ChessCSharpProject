@@ -33,7 +33,7 @@ namespace ChessLogic
             return copy;
         }
 
-        public override IEnumerable<Move> GetMoves(Postion from, Board board)
+        public override IEnumerable<Move> GetMoves(Position from, Board board)
         {
             return MovesPositionInDirs(from, board, directions).Select(to => new NormalMove(from, to));
         }
