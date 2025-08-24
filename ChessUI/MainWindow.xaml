@@ -38,7 +38,9 @@
                       MouseDown="BoardGrid_MouseDown"
                       VerticalAlignment="Center">
                     <Grid.Background>
-                        <ImageBrush ImageSource="/Assets/Board.png"/>
+                        <ImageBrush x:Name="BoardImage" ImageSource="/Assets/Board.png" 
+                                   RenderOptions.BitmapScalingMode="HighQuality"
+                                   RenderOptions.EdgeMode="Aliased"/>
                     </Grid.Background>
 
                     <UniformGrid x:Name="HighLightGrid"

@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 
@@ -12,7 +14,8 @@ namespace ChessUI
         public event Action<Option> option;
         
         public Modes? SelectedMode { get; private set; }
-        
+        public string BackGroundImage { get; private set; } = "Assets/Board.png";
+
         public ControlMenu()
         {
             InitializeComponent();
@@ -21,6 +24,9 @@ namespace ChessUI
             ModeComboBox.IsEnabled = true;
             ModeComboBox.IsEditable = false;
             ModeComboBox.IsDropDownOpen = false;
+            
+            // Initialize Apply button as disabled
+            ApplyBackgroundButton.IsEnabled = false;
         }
         
         public ControlMenu(int currentMinutes)
@@ -45,6 +51,9 @@ namespace ChessUI
             ModeComboBox.IsEnabled = true;
             ModeComboBox.IsEditable = false;
             ModeComboBox.IsDropDownOpen = false;
+            
+            // Initialize Apply button as disabled
+            ApplyBackgroundButton.IsEnabled = false;
         }
 
         private void Continue_Click(object sender, RoutedEventArgs e)
@@ -62,6 +71,11 @@ namespace ChessUI
             option?.Invoke(Option.Restart);
         }
 
+        private void ApplyBackground_Click(object sender, RoutedEventArgs e)
+        {
+            option?.Invoke(Option.ChangeBackground);
+        }
+
         private void ModeComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             if (ModeComboBox.SelectedItem is ComboBoxItem selectedItem && selectedItem.Tag is string tagValue)
@@ -73,5 +87,35 @@ namespace ChessUI
                 }
             }
         }
+
+        private void BoardBackGround_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (BoardBackGround.SelectedItem is ComboBoxItem selectedItem)
+            {
+                switch (selectedItem.Content.ToString())
+                {
+                    case "Default":
+                        BackGroundImage = "Assets/Board.png";
+                        break;
+
+                    case "White and Gray":
+                        BackGroundImage = "Assets/Board1.png";
+                        break;
+                    case "Black and White":
+                        BackGroundImage = "Assets/Board2.png";
+                        break;
+                    default:
+                        BackGroundImage = "Assets/Board.png";
+                        break;
+                }
+
+                // Enable the apply button when a selection is made
+                ApplyBackgroundButton.IsEnabled = true;
+                
+                // Don't automatically invoke the option - let the user choose when to apply
+                // option?.Invoke(Option.ChangeBackground);
+            }
+        }
+
     }
 }

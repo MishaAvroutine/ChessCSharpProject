@@ -1,9 +1,14 @@
 ﻿using ChessLogic;
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
+using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
 using System.Windows.Threading;
 
@@ -616,7 +621,63 @@ namespace ChessUI
                     // Resume
                     gameTimer.Start();
                 }
+                else if (op == Option.ChangeBackground)
+                {
+                    SafeChangeBackground(pauseMenu.BackGroundImage);
+                    // Restart timer after background change
+                    gameTimer.Start();
+                }
+
+                // Always restart timer if it was stopped and we're not exiting or restarting
+                if (op != Option.Exit && op != Option.Restart && !gameTimer.IsEnabled)
+                {
+                    gameTimer.Start();
+                }
             };
+        }
+
+        /*
+         * function to safely change the background image
+         * input: the path to the new background image
+         * output: None
+        */
+        private void SafeChangeBackground(string imagePath)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(imagePath))
+                    return;
+
+                // Use Dispatcher.BeginInvoke to avoid blocking the UI thread
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    try
+                    {
+                        // Clean up the image path - remove any leading slash
+                        string cleanImagePath = imagePath.TrimStart('/');
+                        
+                        // Get the application's base directory and construct the full path
+                        string baseDir = System.AppDomain.CurrentDomain.BaseDirectory;
+                        string fullPath = System.IO.Path.Combine(baseDir, cleanImagePath);
+                        
+                        // Create a new BitmapImage with the absolute path to the application directory
+                        var newImageSource = new BitmapImage(new Uri(fullPath, UriKind.Absolute));
+                        
+                        // Apply the new background
+                        BoardImage.ImageSource = newImageSource;
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show($"Error loading background image: {ex.Message}", 
+                            "Background Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                    }
+                }));
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error changing background: {ex.Message}", 
+                    "Background Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
         }
 
     }

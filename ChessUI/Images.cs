@@ -37,10 +37,30 @@ namespace ChessUI
          * input: file path
          * output: the imageSource bitmap
         */
-        private static ImageSource LoadImage(string filepath)
+        private static ImageSource LoadImage(string path)
         {
-            return new BitmapImage(new Uri(filepath,UriKind.Relative));
+            try
+            {
+                // First try as a resource (pack URI)
+                var resourceUri = new Uri($"pack://application:,,,/{path}", UriKind.Absolute);
+                return new BitmapImage(resourceUri);
+            }
+            catch
+            {
+                try
+                {
+                    // Fallback: try as a file in output directory (Content + Copy to Output Directory)
+                    var fileUri = new Uri(System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, path), UriKind.Absolute);
+                    return new BitmapImage(fileUri);
+                }
+                catch
+                {
+                    // As a last resort, return null (or you can return a default board image)
+                    return null;
+                }
+            }
         }
+
 
 
         /*
