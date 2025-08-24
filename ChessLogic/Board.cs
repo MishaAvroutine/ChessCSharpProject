@@ -15,6 +15,17 @@ namespace ChessLogic
         };
         private const int NUM_OF_PLAYERS = 2;
 
+        public bool IsCapturingMove(Move move)
+        {
+            if (move == null) return false;
+            return this[move.to] != null;
+        }
+
+        public bool IsPromotionMove(Move move)
+        {
+            return move.Type == MoveType.PawnPromotion && move != null;
+        }
+
         // get the piece at the position using row,col
         public Piece this[int row,int col] { 
             get {  
@@ -257,7 +268,7 @@ namespace ChessLogic
         }
 
 
-        private  Postion FindPiece(Player color, PieceType piece)
+        public Postion FindPiece(Player color, PieceType piece)
         {
             return PiecePositionsFor(color).First(pos => this[pos].Type == piece);
         }

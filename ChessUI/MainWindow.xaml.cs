@@ -1,10 +1,10 @@
-﻿using System.Windows;
+﻿using ChessLogic;
+using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
 using System.Windows.Shapes;
-
-using ChessLogic;
 
 namespace ChessUI
 {
@@ -61,6 +61,7 @@ namespace ChessUI
                                      enPassant, halfMoveClock, fullMoveNumber);
             DrawBoard(gameState.Board);
             SetCursor(gameState.CurrentPlayer);
+            SoundManager.PlayeGameStartSound();
         }
 
 
@@ -186,13 +187,31 @@ namespace ChessUI
         {
             try
             {
+                bool isCapture = gameState.Board.IsCapturingMove(move);
+                bool isPromotion = gameState.Board.IsPromotionMove(move);
+                bool isEnPassant = move.Type == MoveType.EnPassant;
                 gameState.MakeMove(move);
                 DrawBoard(gameState.Board);
                 SetCursor(gameState.CurrentPlayer);
 
-                if(gameState.IsGameOver())
+
+                if (isCapture || isEnPassant)
+                {
+                    SoundManager.PlayCaptureSound();
+                }
+                else if(isPromotion)
+                {
+                    SoundManager.PlayPromoteSound();
+                }
+                else
+                {
+                    SoundManager.PlayMoveSound();
+                }
+
+                if (gameState.IsGameOver())
                 {
                     ShowGameOver();
+                    SoundManager.PlayGameEndSound();
                 }
             }
             catch (Exception ex)
@@ -205,7 +224,7 @@ namespace ChessUI
 
         /*
          * function to finilize the move chosen and hide the highlights and make the move
-         * input: the position of the move that is chosen to do
+         * input: the position of the move that ischosen to do
          * output: None
         */
         private void OnToPostionSelected(Postion pos)
@@ -268,26 +287,55 @@ namespace ChessUI
         */
         private void HighLightSquare()
         {
-            Color HighLightColor = Color.FromArgb(255, 49, 216, 229);
+            HideHighLights();
+            Color HighLightColor = Color.FromArgb(175, 49, 216, 229);
+            Color CheckHighLight = Color.FromArgb(175, 94, 10, 5);
+            Postion kingPos = gameState.Board.FindPiece(gameState.CurrentPlayer, PieceType.King);
+            if(gameState.Board.IsInCheck(gameState.CurrentPlayer))
+            {
+                SolidColorBrush brush = new SolidColorBrush(CheckHighLight);
+                HighLights[kingPos.row, kingPos.column].Fill = brush;
+
+                var anim = new ColorAnimation
+                {
+                    From = Colors.Transparent,
+                    To = CheckHighLight,
+                    Duration = TimeSpan.FromSeconds(1),
+                    AutoReverse = true,
+                    RepeatBehavior = RepeatBehavior.Forever
+                };
+                brush.BeginAnimation(SolidColorBrush.ColorProperty, anim);
+            }
             foreach (Postion to in moveCache.Keys)
             {
-                HighLights[to.row, to.column].Fill = new SolidColorBrush(HighLightColor); 
+                HighLights[to.row, to.column].Fill = new SolidColorBrush(HighLightColor);
             }
         }
 
 
+
         /*
-         * 
-         * function to hide the highlighted squares
-         * input: None
-         * ouput: None
-         * 
+        * function to hide the highlighted squares
+        * input: None
+        * output: None
         */
         private void HideHighLights()
         {
-            foreach(Postion to in moveCache.Keys)
+            for (int r = 0; r < SIZE; r++)
             {
-                HighLights[to.row, to.column].Fill = Brushes.Transparent;
+                for (int c = 0; c < SIZE; c++)
+                {
+                    if (HighLights[r, c].Fill is SolidColorBrush scb)
+                    {
+                        // Cancel any running animation
+                        scb.BeginAnimation(SolidColorBrush.ColorProperty, null);
+                        scb.Color = Colors.Transparent;
+                    }
+                    else
+                    {
+                        HighLights[r, c].Fill = new SolidColorBrush(Colors.Transparent);
+                    }
+                }
             }
         }
 
@@ -397,6 +445,7 @@ namespace ChessUI
                                      enPassant, halfMoveClock, fullMoveNumber);
             DrawBoard(gameState.Board);
             SetCursor(gameState.CurrentPlayer);
+            SoundManager.PlayeGameStartSound();
         }
 
 

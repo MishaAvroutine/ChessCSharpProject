@@ -1,6 +1,4 @@
-﻿using System;
-
-namespace ChessLogic
+﻿namespace ChessLogic
 {
     public class GameState
     {

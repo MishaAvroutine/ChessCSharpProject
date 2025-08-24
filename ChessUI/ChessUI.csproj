@@ -25,6 +25,33 @@
     <None Remove="Assets\QueenW.png" />
     <None Remove="Assets\RookB.png" />
     <None Remove="Assets\RookW.png" />
+    <None Remove="Assets\Sounds\capture.wav" />
+    <None Remove="Assets\Sounds\game-end.wav" />
+    <None Remove="Assets\Sounds\game-start.wav" />
+    <None Remove="Assets\Sounds\move-self.wav" />
+    <None Remove="Assets\Sounds\promote.wav" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="Assets\Sounds\capture.wav">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Assets\Sounds\game-end.wav">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Assets\Sounds\game-start.wav">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Assets\Sounds\move-self.wav">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Assets\Sounds\promote.wav">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="NAudio" Version="2.2.1" />
   </ItemGroup>
 
   <ItemGroup>
