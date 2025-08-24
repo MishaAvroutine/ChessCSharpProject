@@ -6,8 +6,8 @@
              xmlns:local="clr-namespace:ChessUI"
              mc:Ignorable="d" 
              d:DesignHeight="450" d:DesignWidth="800">
-    <Border Width="350"
-            Height="125"
+    <Border Width="450"
+            Height="150"
             Style="{StaticResource BorderStyle}">
         <Grid x:Name="OptionGrid">
             <Grid.RowDefinitions>
@@ -18,16 +18,20 @@
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
 
-            <TextBlock Text="SELECT OPTION" Grid.Row="0" Grid.ColumnSpan="2"
+            <TextBlock Text="SELECT OPTION" Grid.Row="0" Grid.ColumnSpan="5"
                        Style="{StaticResource TextStyle}"
                        FontSize="28"/>
 
-            <TextBlock x:Name="FenTextBox" Grid.Row="1" Text="FEN:" Style="{StaticResource TextStyle}" Grid.ColumnSpan="2"
+            <TextBlock x:Name="FenTextBox" Grid.Row="1" Text="FEN:" Style="{StaticResource TextStyle}" Grid.ColumnSpan="5"
                        FontSize="10"/>
 
-            <Button Grid.Row="2"
+
+            <Button Grid.Row="2" Grid.Column="0"
                     Content="Continue"
                     Style="{StaticResource ButtonStyle}"
                     Width="80"
@@ -35,14 +39,28 @@
                     Click="Continue_Click"/>
 
             <Button Grid.Row="2" Grid.Column="1"
-                Content="Restart"
+                Content="Exit"
                 Style="{StaticResource ButtonStyle}"
                 Width="80"
                 Height="30"
-                Click="Restart_Click"/> 
+                Click="Exit_Click"/>
+            
+            <Button Grid.Column="2" Grid.Row="2"
+                    Content="Restart"
+                    Width="80"
+                    Height="30"
+                    Style="{StaticResource ButtonStyle}"
+                    Click="Restart_Click"/>
 
-
-
+            <StackPanel Grid.Row="2" Grid.Column="3" Grid.ColumnSpan="2" Orientation="Horizontal" HorizontalAlignment="Center">
+                <TextBlock Text="Mode:" VerticalAlignment="Center" Margin="0,0,5,0" Foreground="Black" FontSize="12"/>
+                <ComboBox x:Name="ModeComboBox" Width="120" Height="25" SelectionChanged="ModeComboBox_SelectionChanged" 
+                          Background="#F5F5DC" BorderBrush="#4A3B2F" BorderThickness="2" Foreground="Black">
+                    <ComboBoxItem Content="Regular (30 min)" Tag="30"/>
+                    <ComboBoxItem Content="Blitz (5 min)" Tag="5"/>
+                    <ComboBoxItem Content="Bullet (1 min)" Tag="1"/>
+                </ComboBox>
+            </StackPanel>
         </Grid>
     </Border>
 </UserControl>

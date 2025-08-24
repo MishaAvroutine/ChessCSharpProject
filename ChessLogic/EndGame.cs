@@ -7,5 +7,6 @@
         FiftyMoveRule,
         InsufficientMaterial,
         ThreefoldRepetition,
+        Timer,
     }
 }

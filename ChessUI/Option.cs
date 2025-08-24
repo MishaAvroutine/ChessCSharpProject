@@ -11,5 +11,6 @@ namespace ChessUI
         Restart,
         Exit,
         Continue,
+        ChangeTime
     }
 }

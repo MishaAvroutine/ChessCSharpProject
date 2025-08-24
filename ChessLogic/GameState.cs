@@ -192,6 +192,7 @@
             {
                 Result = Result.Draw(EndGame.FiftyMoveRule);
             }
+            // Note: Timer-based game over is handled separately in the UI
         }
 
         /*
@@ -306,6 +307,16 @@
         private bool FiftyRuleMove()
         {
             return HalfMoveClock == MAX_MOVES_WITHOUT_ANY_CAPTURES;
+        }
+
+        /*
+         * function to set the result of the game (used for timer-based game over)
+         * input: the result to set
+         * output: None
+        */
+        public void SetResult(Result result)
+        {
+            Result = result;
         }
     }
 }

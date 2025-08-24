@@ -5,6 +5,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Shapes;
+using System.Windows.Threading;
 
 namespace ChessUI
 {
@@ -22,6 +23,14 @@ namespace ChessUI
         FullMoveNumber    // 5 - Full move number
     }
 
+
+    public enum Modes
+    {
+        Regular = 30,
+        Blitz = 5,
+        Bullet = 1
+    }
+
     public partial class MainWindow : Window
     {
         private const string startFen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"; 
@@ -34,6 +43,14 @@ namespace ChessUI
 
         // the main gamestate variable with the board and move execusion
         private GameState gameState;
+
+
+        private DispatcherTimer gameTimer;
+        private TimeSpan whiteTime = TimeSpan.FromMinutes((int)Modes.Regular);
+        private TimeSpan blackTime = TimeSpan.FromMinutes((int)Modes.Regular);
+        private const int IncrementSeconds = 2;
+
+        private int storedMinutes = (int)Modes.Regular;
 
         private Postion selecetedPos = null;
         public MainWindow()
@@ -55,13 +72,66 @@ namespace ChessUI
             // Parse move counters
             int halfMoveClock = int.Parse(fenParts[(int)FenParts.HalfMoveClock]);
             int fullMoveNumber = int.Parse(fenParts[(int)FenParts.FullMoveNumber]);
-            
+
+
+
+            gameTimer = new DispatcherTimer();
+            gameTimer.Interval = TimeSpan.FromSeconds(1);
+            gameTimer.Tick += OnTimerTick;
+            gameTimer.Start();
+
+            UpdateClocks();
+
             gameState = new GameState(startPlayer, Board.Inital(fenParts[(int)FenParts.Placement]), 
                                      whiteKingside, whiteQueenside, blackKingside, blackQueenside,
                                      enPassant, halfMoveClock, fullMoveNumber);
             DrawBoard(gameState.Board);
             SetCursor(gameState.CurrentPlayer);
             SoundManager.PlayeGameStartSound();
+        }
+
+
+
+
+        private void OnTimerTick(object sender, EventArgs e)
+        {
+            // Count down for the player whose turn it is (current player)
+            if (gameState.CurrentPlayer == Player.White) // White's turn to move
+            {
+                whiteTime = whiteTime.Subtract(TimeSpan.FromSeconds(1));
+                if (whiteTime.TotalSeconds <= 0)
+                {
+                    whiteTime = TimeSpan.Zero;
+                    GameOverOnTime(Player.White);
+                }
+            }
+            else // Black's turn to move
+            {
+                blackTime = blackTime.Subtract(TimeSpan.FromSeconds(1));
+                if (blackTime.TotalSeconds <= 0)
+                {
+                    blackTime = TimeSpan.Zero;
+                    GameOverOnTime(Player.Black);
+                }
+            }
+
+            UpdateClocks();
+        }
+
+        private void UpdateClocks()
+        {
+            WhiteTimerTextBlock.Text = whiteTime.ToString(@"mm\:ss");
+            BlackTimerTextBlock.Text = blackTime.ToString(@"mm\:ss");
+        }
+
+
+
+        private void GameOverOnTime(Player loser)
+        {
+            gameTimer.Stop();
+            gameState.SetResult(Result.Win(EndGame.Timer, loser.Opponent()));
+            
+            ShowGameOver();
         }
 
 
@@ -208,10 +278,24 @@ namespace ChessUI
                     SoundManager.PlayMoveSound();
                 }
 
+                // Add increment to the player who just moved (opposite of current player)
+                if (gameState.CurrentPlayer == Player.Black) // White just moved
+                {
+                    whiteTime = whiteTime.Add(TimeSpan.FromSeconds(IncrementSeconds));
+                }
+                else // Black just moved
+                {
+                    blackTime = blackTime.Add(TimeSpan.FromSeconds(IncrementSeconds));
+                }
+
+                
+                UpdateClocks();
+
                 if (gameState.IsGameOver())
                 {
                     ShowGameOver();
                     SoundManager.PlayGameEndSound();
+                    gameTimer.Stop();
                 }
             }
             catch (Exception ex)
@@ -411,7 +495,7 @@ namespace ChessUI
                 if (option == Option.Restart)
                 {
                     MenuContainer.Content = null;
-                    RestartGame();
+                    RestartGame(storedMinutes);
                 }
                 else
                 {
@@ -420,10 +504,21 @@ namespace ChessUI
             };
         }
 
-        private void RestartGame()
+        private void RestartGame(int startMinutes)
         {
             HideHighLights();
             moveCache.Clear();
+            
+            // Reset timer
+            whiteTime = TimeSpan.FromMinutes(startMinutes);
+            blackTime = TimeSpan.FromMinutes(startMinutes);
+            
+            // Restart timer if it was stopped
+            if (!gameTimer.IsEnabled)
+            {
+                gameTimer.Start();
+            }
+            
             string[] fenParts = startFen.Split(' ');
             Player startPlayer = fenParts[(int)FenParts.StartPlayer] == "w" ? Player.White : Player.Black;
             
@@ -445,6 +540,7 @@ namespace ChessUI
                                      enPassant, halfMoveClock, fullMoveNumber);
             DrawBoard(gameState.Board);
             SetCursor(gameState.CurrentPlayer);
+            UpdateClocks();
             SoundManager.PlayeGameStartSound();
         }
 
@@ -477,10 +573,13 @@ namespace ChessUI
         */
         private void ShowPauseMenu()
         {
-            ControlMenu pauseMenu = new ControlMenu();
+            gameTimer.Stop();
+            ControlMenu pauseMenu = new ControlMenu(storedMinutes);
             pauseMenu.FenTextBox.Text = gameState.ToFen();
-
+            
             MenuContainer.Content = pauseMenu;
+
+            
 
             pauseMenu.option += op =>
             {
@@ -488,7 +587,24 @@ namespace ChessUI
 
                 if (op == Option.Restart)
                 {
-                    RestartGame();
+                    RestartGame(storedMinutes);
+                }
+                else if(op == Option.Exit)
+                {
+                    Application.Current.Shutdown();
+                }
+                else if(op == Option.ChangeTime)
+                {
+                    if(pauseMenu.SelectedMode != null)
+                    {
+                        storedMinutes = (int)pauseMenu.SelectedMode;
+                        RestartGame(storedMinutes);
+                    }
+                }
+                else if(op == Option.Continue)
+                {
+                    // Resume
+                    gameTimer.Start();
                 }
             };
         }

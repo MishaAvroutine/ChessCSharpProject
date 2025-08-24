@@ -11,28 +11,63 @@
         Background="#101010"
         KeyDown="Window_KeyDown">
     <Viewbox>
-        <Grid x:Name="BoardGrid"
-              Width="600"
-              Height="600"
-              MouseDown="BoardGrid_MouseDown">
-            <Grid.Background>
-                <ImageBrush ImageSource="/Assets/Board.png"/>
-            </Grid.Background>
+        <Border Width="600" Height="800" Style="{StaticResource BorderStyle}">
+            <StackPanel>
 
-            <UniformGrid x:Name="HighLightGrid"
-                         Rows="8"
-                         Columns="8">
-            </UniformGrid>
-            
-            <UniformGrid x:Name="PieceGird"
-                         Rows="8"
-                         Columns="8"
-                         RenderOptions.BitmapScalingMode="HighQuality">
-                
+                <!-- Black Side Timer -->
+                <Grid Margin="0,20,0,20" Height="60">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock x:Name="BlackTimerTextBlock"
+               Text="05:00"
+               FontSize="32"
+               FontWeight="Bold"
+               Foreground="DarkSlateGray"
+               VerticalAlignment="Center"
+               HorizontalAlignment="Center"/>
+                </Grid>
 
-            </UniformGrid>
+                <!-- Board and Menu -->
+                <Grid x:Name="BoardGrid"
+                      Width="600"
+                      Height="600"
+                      MouseDown="BoardGrid_MouseDown"
+                      VerticalAlignment="Center">
+                    <Grid.Background>
+                        <ImageBrush ImageSource="/Assets/Board.png"/>
+                    </Grid.Background>
 
-            <ContentControl x:Name="MenuContainer"/>
-        </Grid>
+                    <UniformGrid x:Name="HighLightGrid"
+                                 Rows="8"
+                                 Columns="8"/>
+                    <UniformGrid x:Name="PieceGird"
+                                 Rows="8"
+                                 Columns="8"
+                                 RenderOptions.BitmapScalingMode="HighQuality"/>
+                    <ContentControl x:Name="MenuContainer" Margin="0,-32,0,32"/>
+                </Grid>
+
+                <!-- White Side Timer -->
+                <Grid Margin="0,20,0,20" Height="60">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock x:Name="WhiteTimerTextBlock"
+               Text="05:00"
+               FontSize="32"
+               FontWeight="Bold"
+               Foreground="DarkSlateGray"
+               VerticalAlignment="Center"
+               HorizontalAlignment="Center"/>
+                </Grid>
+            </StackPanel>
+        </Border>
     </Viewbox>
 </Window>

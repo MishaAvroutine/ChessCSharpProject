@@ -19,10 +19,14 @@ namespace ChessLogic
             this.Reason = reason;
         }
 
-        
+
         public static Result Win(Player winner)
         {
             return new Result(winner, EndGame.CheckMate);
+        }
+        public static Result Win(EndGame reason,Player winner)
+        {
+            return new Result(winner, reason);
         }
 
         public static Result Draw(EndGame reason)

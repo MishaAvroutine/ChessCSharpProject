@@ -49,6 +49,7 @@ namespace ChessUI
                 EndGame.FiftyMoveRule => "FIFTY-RULE-MOVE",
                 EndGame.InsufficientMaterial => "INSUFFICIENT MATERIAL",
                 EndGame.ThreefoldRepetition => "THREEFOLD REPETITION",
+                EndGame.Timer => $"{PlayerString(currentPlayer)} RAN OUT OF TIME",
                 _ => ""
             };
         }
