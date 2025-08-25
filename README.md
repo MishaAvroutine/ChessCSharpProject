@@ -32,7 +32,7 @@ A fully-featured chess game built with C# and WPF, featuring a complete chess en
 
 ### Prerequisites
 
-- **.NET 9.0 SDK** or later
+- **.NET 6.0 SDK** or later
 - **Windows 10/11** (WPF application)
 - **Visual Studio 2022** or **Visual Studio Code** (optional, for development)
 
@@ -141,7 +141,7 @@ rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1
 
 ### Required Packages
 
-- **Microsoft.NET.Sdk** (9.0)
+- **Microsoft.NET.Sdk** (6.0)
 - **Microsoft.NET.Sdk.WindowsDesktop** (for WPF support)
 
 ### Target Frameworks
@@ -184,7 +184,7 @@ dotnet test --project ChessLogic.Tests
 
 ### Code Quality
 
-- **C# 9.0+** features used throughout
+- **C# 6.0+** features used throughout
 - **Nullable reference types** enabled
 - **Implicit usings** enabled for cleaner code
 - **XML documentation** for all public methods
@@ -195,7 +195,7 @@ dotnet test --project ChessLogic.Tests
 
 1. **Build Errors**:
 
-   - Ensure .NET 9.0 SDK is installed
+   - Ensure .NET 6.0 SDK+ is installed
    - Run `dotnet --version` to verify installation
    - Try `dotnet clean` followed by `dotnet restore`
 2. **Runtime Errors**:
