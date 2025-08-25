@@ -7,6 +7,9 @@
         public override Position to { get; }
 
         private readonly PieceType newType;
+        
+        
+        public PieceType PromotionType => newType;
 
 
         public PawnPromotion(Position fr, PieceType newType,Position to)

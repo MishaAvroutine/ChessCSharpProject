@@ -119,6 +119,58 @@
             </Setter>
         </Style>
 
+        <!-- ListBox Style for Move History -->
+        <Style TargetType="ListBox" x:Key="MoveListBoxStyle">
+            <Setter Property="Background" Value="{StaticResource FillColor}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource StrokeColor}"/>
+            <Setter Property="BorderThickness" Value="2"/>
+            <Setter Property="FontFamily" Value="Segoe UI Light"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Foreground" Value="{StaticResource TextColor}"/>
+            <Setter Property="Padding" Value="5"/>
+            <Setter Property="Margin" Value="5"/>
+            <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Auto"/>
+            <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled"/>
+            <Setter Property="ItemContainerStyle">
+                <Setter.Value>
+                    <Style TargetType="ListBoxItem">
+                        <Setter Property="Background" Value="{StaticResource FillColor}"/>
+                        <Setter Property="Foreground" Value="{StaticResource TextColor}"/>
+                        <Setter Property="Margin" Value="2"/>
+                        <Setter Property="Padding" Value="4"/>
+                        <Setter Property="HorizontalContentAlignment" Value="Center"/>
+                        <Setter Property="VerticalContentAlignment" Value="Center"/>
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="ListBoxItem">
+                                    <Border x:Name="Border"
+                                    Background="{TemplateBinding Background}"
+                                    BorderBrush="{StaticResource StrokeColor}"
+                                    BorderThickness="1"
+                                    CornerRadius="3"
+                                    Padding="4">
+                                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="Border" Property="Background" Value="{StaticResource ButtonColor}"/>
+                                            <Setter Property="Foreground" Value="White"/>
+                                        </Trigger>
+                                        <Trigger Property="IsSelected" Value="True">
+                                            <Setter TargetName="Border" Property="Background" Value="{StaticResource ButtonColor}"/>
+                                            <Setter Property="Foreground" Value="White"/>
+                                            <Setter Property="FontWeight" Value="Bold"/>
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                    </Style>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+
 
 
 

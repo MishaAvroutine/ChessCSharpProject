@@ -55,9 +55,16 @@ namespace ChessUI
         private readonly Rectangle[,] HighLights = new Rectangle[SIZE, SIZE];
         private readonly Dictionary<Position,Move> moveCache = new Dictionary<Position,Move>();
 
+        private readonly List<string> fenHistory = new();
+        // move history for undo/redo functionality
+        private readonly List<string> moveHistory = new(); // Store actual moves like "e4", "Nf3", etc.
+
+        private int replayIndex = -1;
+
 
         // the main gamestate variable with the board and move execusion
         private GameState gameState;
+
 
 
         private DispatcherTimer gameTimer;
@@ -72,36 +79,17 @@ namespace ChessUI
         {
             InitializeComponent();
             InitilizeBoard();
-            string[] fenParts = startFen.Split(' ');
-            Player startPlayer = fenParts[(int)FenParts.StartPlayer] == "w" ? Player.White : Player.Black; 
+            gameState = ParseFenToGameState(startFen);
+            DrawBoard(gameState.Board);
+            SetCursor(gameState.CurrentPlayer);
             
-            // Parse castling rights
-            bool whiteKingside = fenParts[(int)FenParts.Castling].Contains('K');
-            bool whiteQueenside = fenParts[(int)FenParts.Castling].Contains('Q');
-            bool blackKingside = fenParts[(int)FenParts.Castling].Contains('k');
-            bool blackQueenside = fenParts[(int)FenParts.Castling].Contains('q');
-            
-            // Parse en passant
-            Position enPassant = ParsePosition(fenParts[(int)FenParts.EnPassant]);
-            
-            // Parse move counters
-            int halfMoveClock = int.Parse(fenParts[(int)FenParts.HalfMoveClock]);
-            int fullMoveNumber = int.Parse(fenParts[(int)FenParts.FullMoveNumber]);
-
-
-
+            // Initialize and start the game timer
             gameTimer = new DispatcherTimer();
             gameTimer.Interval = TimeSpan.FromSeconds(1);
             gameTimer.Tick += OnTimerTick;
             gameTimer.Start();
-
+            
             UpdateClocks();
-
-            gameState = new GameState(startPlayer, Board.Inital(fenParts[(int)FenParts.Placement]), 
-                                     whiteKingside, whiteQueenside, blackKingside, blackQueenside,
-                                     enPassant, halfMoveClock, fullMoveNumber);
-            DrawBoard(gameState.Board);
-            SetCursor(gameState.CurrentPlayer);
             SoundManager.PlayeGameStartSound();
         }
 
@@ -156,7 +144,7 @@ namespace ChessUI
          * input: None
          * output: None
         */
-    public void InitilizeBoard()
+        public void InitilizeBoard()
         {
             for(int row =0; row < SIZE;row++)
             {
@@ -275,10 +263,20 @@ namespace ChessUI
                 bool isCapture = gameState.Board.IsCapturingMove(move);
                 bool isPromotion = gameState.Board.IsPromotionMove(move);
                 bool isEnPassant = move.Type == MoveType.EnPassant;
+                
+                // Store the move in history before making it
+                string moveNotation = GetMoveNotation(move);
+                moveHistory.Add(moveNotation);
+                
                 gameState.MakeMove(move);
                 DrawBoard(gameState.Board);
                 SetCursor(gameState.CurrentPlayer);
 
+                // Update replay index to current position (end of game)
+                replayIndex = fenHistory.Count;
+
+                // Update the move list display
+                UpdateMoveList();
 
                 if (isCapture || isEnPassant)
                 {
@@ -317,7 +315,101 @@ namespace ChessUI
             {
                 MessageBox.Show($"Error executing move: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
+            fenHistory.Add(gameState.ToFen());
+        }
 
+        /// <summary>
+        /// Converts a move to algebraic notation
+        /// </summary>
+        private string GetMoveNotation(Move move)
+        {
+            string fromSquare = PositionToString(move.from);
+            string toSquare = PositionToString(move.to);
+            
+            switch (move.Type)
+            {
+                case MoveType.CastleKS:
+                    return "O-O";
+                case MoveType.CastleQS:
+                    return "O-O-O";
+                case MoveType.EnPassant:
+                    return fromSquare.Substring(0, 1) + "x" + toSquare + " e.p.";
+                case MoveType.PawnPromotion:
+                    string promotionPiece = GetPromotionPieceSymbol(((PawnPromotion)move).PromotionType);
+                    return toSquare + "=" + promotionPiece;
+                default:
+                    string pieceSymbol = GetPieceSymbol(gameState.Board[move.from]);
+                    string captureSymbol = gameState.Board.IsCapturingMove(move) ? "x" : "";
+                    return pieceSymbol + captureSymbol + toSquare;
+            }
+        }
+
+        /// <summary>
+        /// Converts a position to chess notation (e.g., "e4")
+        /// </summary>
+        private string PositionToString(Position pos)
+        {
+            char file = (char)('a' + pos.column);
+            char rank = (char)('1' + (7 - pos.row));
+            return file.ToString() + rank.ToString();
+        }
+
+        /// <summary>
+        /// Gets the symbol for a piece
+        /// </summary>
+        private string GetPieceSymbol(Piece piece)
+        {
+            if (piece == null) return "";
+            
+            switch (piece.Type)
+            {
+                case PieceType.Pawn: return "";
+                case PieceType.Rook: return "R";
+                case PieceType.Knight: return "N";
+                case PieceType.Bishop: return "B";
+                case PieceType.Queen: return "Q";
+                case PieceType.King: return "K";
+                default: return "";
+            }
+        }
+
+        /// <summary>
+        /// Gets the symbol for a promotion piece
+        /// </summary>
+        private string GetPromotionPieceSymbol(PieceType type)
+        {
+            switch (type)
+            {
+                case PieceType.Queen: return "Q";
+                case PieceType.Rook: return "R";
+                case PieceType.Bishop: return "B";
+                case PieceType.Knight: return "N";
+                default: return "Q";
+            }
+        }
+
+        /// <summary>
+        /// Updates the move list display in the ListBox
+        /// </summary>
+        private void UpdateMoveList()
+        {
+            MoveListBox.Items.Clear();
+            
+            for (int i = 0; i < moveHistory.Count; i += 2)
+            {
+                string moveNumber = ((i / 2) + 1).ToString() + ".";
+                string whiteMove = moveHistory[i];
+                string blackMove = (i + 1 < moveHistory.Count) ? moveHistory[i + 1] : "";
+                
+                string moveText = $"{moveNumber} {whiteMove} {blackMove}".Trim();
+                MoveListBox.Items.Add(moveText);
+            }
+            
+            // Scroll to the bottom to show the latest move
+            if (MoveListBox.Items.Count > 0)
+            {
+                MoveListBox.ScrollIntoView(MoveListBox.Items[MoveListBox.Items.Count - 1]);
+            }
         }
 
 
@@ -524,6 +616,9 @@ namespace ChessUI
             HideHighLights();
             moveCache.Clear();
             
+            // Clear move history for new game
+            ClearMoveHistory();
+            
             // Reset timer
             whiteTime = TimeSpan.FromMinutes(startMinutes);
             blackTime = TimeSpan.FromMinutes(startMinutes);
@@ -534,25 +629,7 @@ namespace ChessUI
                 gameTimer.Start();
             }
             
-            string[] fenParts = startFen.Split(' ');
-            Player startPlayer = fenParts[(int)FenParts.StartPlayer] == "w" ? Player.White : Player.Black;
-            
-            // Parse castling rights
-            bool whiteKingside = fenParts[(int)FenParts.Castling].Contains('K');
-            bool whiteQueenside = fenParts[(int)FenParts.Castling].Contains('Q');
-            bool blackKingside = fenParts[(int)FenParts.Castling].Contains('k');
-            bool blackQueenside = fenParts[(int)FenParts.Castling].Contains('q');
-            
-            // Parse en passant
-            Position enPassant = ParsePosition(fenParts[(int)FenParts.EnPassant]);
-            
-            // Parse move counters
-            int halfMoveClock = int.Parse(fenParts[(int)FenParts.HalfMoveClock]);
-            int fullMoveNumber = int.Parse(fenParts[(int)FenParts.FullMoveNumber]);
-            
-            gameState = new GameState(startPlayer, Board.Inital(fenParts[(int)FenParts.Placement]), 
-                                     whiteKingside, whiteQueenside, blackKingside, blackQueenside,
-                                     enPassant, halfMoveClock, fullMoveNumber);
+            gameState = ParseFenToGameState(startFen);
             DrawBoard(gameState.Board);
             SetCursor(gameState.CurrentPlayer);
             UpdateClocks();
@@ -680,5 +757,101 @@ namespace ChessUI
             }
         }
 
+        private void PrevButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (replayIndex > 0)
+            {
+                replayIndex--;
+                LoadFenPosition(replayIndex);
+                UpdateMoveListForReplay();
+            }
+        }
+
+        private void NextButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (replayIndex < fenHistory.Count - 1)
+            {
+                replayIndex++;
+                LoadFenPosition(replayIndex);
+                UpdateMoveListForReplay();
+            }
+        }
+
+        private void LoadFenPosition(int index)
+        {
+            string fen = fenHistory[index];
+            gameState = ParseFenToGameState(fen);
+            DrawBoard(gameState.Board);
+            UpdateClocks();
+        }
+
+        /// <summary>
+        /// Parses a FEN string and creates a GameState
+        /// </summary>
+        private GameState ParseFenToGameState(string fen)
+        {
+            string[] fenParts = fen.Split(' ');
+            
+            // Parse player
+            Player startPlayer = fenParts[(int)FenParts.StartPlayer] == "w" ? Player.White : Player.Black;
+            
+            // Parse castling rights
+            bool whiteKingside = fenParts[(int)FenParts.Castling].Contains('K');
+            bool whiteQueenside = fenParts[(int)FenParts.Castling].Contains('Q');
+            bool blackKingside = fenParts[(int)FenParts.Castling].Contains('k');
+            bool blackQueenside = fenParts[(int)FenParts.Castling].Contains('q');
+            
+            // Parse en passant
+            Position enPassant = ParsePosition(fenParts[(int)FenParts.EnPassant]);
+            
+            // Parse move counters
+            int halfMoveClock = int.Parse(fenParts[(int)FenParts.HalfMoveClock]);
+            int fullMoveNumber = int.Parse(fenParts[(int)FenParts.FullMoveNumber]);
+            
+            return new GameState(startPlayer, Board.Inital(fenParts[(int)FenParts.Placement]), 
+                                whiteKingside, whiteQueenside, blackKingside, blackQueenside,
+                                enPassant, halfMoveClock, fullMoveNumber);
+        }
+
+
+        /// <summary>
+        /// Updates the move list display during replay mode
+        /// </summary>
+        private void UpdateMoveListForReplay()
+        {
+            MoveListBox.Items.Clear();
+            
+            for (int i = 0; i <= replayIndex && i < moveHistory.Count; i += 2)
+            {
+                string moveNumber = ((i / 2) + 1).ToString() + ".";
+                string whiteMove = moveHistory[i];
+                string blackMove = (i + 1 < moveHistory.Count && i + 1 <= replayIndex) ? moveHistory[i + 1] : "";
+                
+                string moveText = $"{moveNumber} {whiteMove} {blackMove}".Trim();
+                MoveListBox.Items.Add(moveText);
+            }
+            
+            // Highlight the current move
+            if (MoveListBox.Items.Count > 0)
+            {
+                int currentMoveIndex = replayIndex / 2;
+                if (currentMoveIndex < MoveListBox.Items.Count)
+                {
+                    MoveListBox.SelectedIndex = currentMoveIndex;
+                    MoveListBox.ScrollIntoView(MoveListBox.Items[currentMoveIndex]);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Clears the move history when starting a new game
+        /// </summary>
+        private void ClearMoveHistory()
+        {
+            moveHistory.Clear();
+            fenHistory.Clear();
+            replayIndex = -1;
+            MoveListBox.Items.Clear();
+        }
     }
 }

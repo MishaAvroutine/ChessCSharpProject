@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 
 namespace ChessUI
 {
@@ -74,6 +75,16 @@ namespace ChessUI
         private void ApplyBackground_Click(object sender, RoutedEventArgs e)
         {
             option?.Invoke(Option.ChangeBackground);
+        }
+
+        private void ControlMenu_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.Escape)
+            {
+                // Close the menu by invoking Continue option
+                option?.Invoke(Option.Continue);
+                e.Handled = true; // Prevent the key from bubbling up to the main window
+            }
         }
 
         private void ModeComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
