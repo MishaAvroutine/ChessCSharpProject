@@ -35,7 +35,7 @@
             </StackPanel>
             
             <!--AI TOGGLE-->
-            <Button x:Name="AIbutton" Grid.Row="1" Content="AI" Width="60" Height="25" Margin="3" Style="{StaticResource ButtonStyle}" Click="AIButton_Click"/>
+            <Button x:Name="AIbutton" Grid.Row="1" Content="AI: OFF" Width="60" Height="25" Margin="3" Style="{StaticResource ButtonStyle}" Click="AIButton_Click"/>
             
             <!-- Chess Board in second column -->
             <Viewbox Grid.Column="1" Margin="0" Grid.Row="0" Grid.RowSpan="2">
@@ -53,21 +53,65 @@
                                        HorizontalAlignment="Center"/>
                         </Grid>
 
-                        <!-- Board and Menu -->
-                        <Grid x:Name="BoardGrid"
-                              Width="500"
-                              Height="500"
-                              MouseDown="BoardGrid_MouseDown"
-                              VerticalAlignment="Center">
-                            <Grid.Background>
-                                <ImageBrush x:Name="BoardImage" ImageSource="/Assets/Board.png" 
-                                            RenderOptions.BitmapScalingMode="HighQuality"
-                                            RenderOptions.EdgeMode="Aliased"/>
-                            </Grid.Background>
+                        <!-- Board with coordinates -->
+                        <Grid Width="500" Height="500">
 
-                            <UniformGrid x:Name="HighLightGrid" Rows="8" Columns="8"/>
-                            <UniformGrid x:Name="PieceGird" Rows="8" Columns="8" RenderOptions.BitmapScalingMode="HighQuality"/>
-                            
+                            <Grid.ColumnDefinitions>
+                                <!-- Left margin for rank numbers -->
+                                <ColumnDefinition Width="20"/>
+                                <!-- Actual board -->
+                                <ColumnDefinition Width="*"/>
+                                <!-- Right margin (optional) -->
+                                <ColumnDefinition Width="20"/>
+                            </Grid.ColumnDefinitions>
+
+                            <Grid.RowDefinitions>
+                                <!-- Top margin for file letters -->
+                                <RowDefinition Height="20"/>
+                                <!-- Actual board -->
+                                <RowDefinition Height="*"/>
+                                <!-- Bottom margin for file letters -->
+                                <RowDefinition Height="20"/>
+                            </Grid.RowDefinitions>
+
+                            <!-- The 8x8 board goes in center -->
+                            <Grid x:Name="BoardGrid"
+          Grid.Row="1" Grid.Column="1"
+          MouseDown="BoardGrid_MouseDown">
+                                <Grid.Background>
+                                    <ImageBrush x:Name="BoardImage" ImageSource="/Assets/Board.png" 
+                        RenderOptions.BitmapScalingMode="HighQuality"
+                        RenderOptions.EdgeMode="Aliased"/>
+                                </Grid.Background>
+
+                                <UniformGrid x:Name="HighLightGrid" Rows="8" Columns="8"/>
+                                <UniformGrid x:Name="PieceGird" Rows="8" Columns="8"
+                     RenderOptions.BitmapScalingMode="HighQuality"/>
+                            </Grid>
+
+                            <!-- Rank numbers (left side) -->
+                            <UniformGrid Grid.Row="1" Grid.Column="0" Rows="8" Columns="1" VerticalAlignment="Stretch" HorizontalAlignment="Center">
+                                <TextBlock Text="8" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                                <TextBlock Text="7" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                                <TextBlock Text="6" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                                <TextBlock Text="5" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                                <TextBlock Text="4" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                                <TextBlock Text="3" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                                <TextBlock Text="2" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                                <TextBlock Text="1" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                            </UniformGrid>
+
+                            <!-- File letters (bottom side) -->
+                            <UniformGrid Grid.Row="2" Grid.Column="1" Rows="1" Columns="8" HorizontalAlignment="Stretch" VerticalAlignment="Center">
+                                <TextBlock Text="a" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                                <TextBlock Text="b" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                                <TextBlock Text="c" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                                <TextBlock Text="d" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                                <TextBlock Text="e" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                                <TextBlock Text="f" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                                <TextBlock Text="g" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                                <TextBlock Text="h" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                            </UniformGrid>
                         </Grid>
 
                         <!-- White Side Timer -->
