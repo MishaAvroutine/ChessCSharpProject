@@ -72,7 +72,7 @@ namespace ChessUI
         private DispatcherTimer gameTimer;
         private TimeSpan whiteTime = TimeSpan.FromMinutes((int)Modes.Regular);
         private TimeSpan blackTime = TimeSpan.FromMinutes((int)Modes.Regular);
-        private const int IncrementSeconds = 2;
+        private const int IncrementSeconds = 0x0;
 
         private int storedMinutes = (int)Modes.Regular;
 
@@ -105,6 +105,8 @@ namespace ChessUI
             DrawBoard(gameState.Board);
             SetCursor(gameState.CurrentPlayer);
             
+            var booksDir = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Books");
+            ChessLogic.ChessAI.LoadOpeningSequencesFromFolder(booksDir);
             // Initialize and start the game timer
             gameTimer = new DispatcherTimer();
             gameTimer.Interval = TimeSpan.FromSeconds(1);
