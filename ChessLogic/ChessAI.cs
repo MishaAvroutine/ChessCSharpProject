@@ -25,7 +25,7 @@ namespace ChessLogic
             public Position PrevBlackSkip;
         }
 
-        private const int DEFAULT_SEARCH_DEPTH = 5;
+        private const int DEFAULT_SEARCH_DEPTH = 4; // Reduced from 5 for better performance
 
         // Material values (centipawns)
         private static readonly Dictionary<PieceType, int> PieceValues = new Dictionary<PieceType, int>
@@ -120,6 +120,9 @@ namespace ChessLogic
         // Opening book instance
         private static readonly OpeningBook openingBook = new OpeningBook();
 
+        // Move ordering cache to avoid re-sorting
+        private static readonly Dictionary<ulong, List<Move>> moveOrderCache = new Dictionary<ulong, List<Move>>();
+
         // Simple FNV-1a 64-bit hashing for board snapshot
         private static ulong HashBoardSnapshot(Board board, Player toMove)
         {
@@ -213,6 +216,7 @@ namespace ChessLogic
                 Array.Clear(killers, 0, killers.Length);
                 historyTable.Clear();
                 transpositionTable.Clear();
+                moveOrderCache.Clear();
 
                 Move bestMove = null;
                 Board rootBoard = state.Board.Copy();
@@ -247,10 +251,7 @@ namespace ChessLogic
                         Move localBest = null;
 
                         // gather root moves and order
-                        var rootMoves = GetAllLegalMoves(rootBoard, rootToMove)
-                            .OrderByDescending(m => rootBoard.IsCapturingMove(m))
-                            .ThenByDescending(m => rootBoard.IsPromotionMove(m))
-                            .ToList();
+                        var rootMoves = GetOrderedMoves(rootBoard, rootToMove, 0);
 
                         if (!rootMoves.Any())
                         {
@@ -321,6 +322,29 @@ namespace ChessLogic
             }
         }
 
+        // Optimized move generation with caching
+        private static List<Move> GetOrderedMoves(Board board, Player player, int depth)
+        {
+            ulong boardHash = HashBoardSnapshot(board, player);
+            
+            // Check cache first
+            if (moveOrderCache.TryGetValue(boardHash, out var cachedMoves))
+            {
+                return cachedMoves;
+            }
+
+            // Generate and order moves
+            var moves = GetAllLegalMoves(board, player).ToList();
+            if (moves.Count > 1)
+            {
+                moves.Sort((a, b) => MoveOrderComparer(board, a, b));
+            }
+
+            // Cache the result
+            moveOrderCache[boardHash] = moves;
+            return moves;
+        }
+
         // Negamax wrapper using transposition table & heuristics (returns score from side-to-move perspective)
         private static int Negamax(Board board, int depth, int alpha, int beta, Player toMove)
         {
@@ -344,7 +368,7 @@ namespace ChessLogic
                     return Quiescence(board, alpha, beta, toMove);
                 }
 
-                IEnumerable<Move> moves = GetAllLegalMoves(board, toMove);
+                var moves = GetOrderedMoves(board, toMove, depth);
                 if (!moves.Any())
                 {
                     if (board.IsInCheck(toMove))
@@ -352,15 +376,12 @@ namespace ChessLogic
                     return 0; // stalemate
                 }
 
-                // Move ordering: captures (MVV-LVA), promotions, killers, history
-                var ordered = moves.ToList();
-                ordered.Sort((a, b) => MoveOrderComparer(board, a, b)); // sorts descending (best first)
-
                 int originalAlpha = alpha;
                 Move bestLocal = null;
                 int value = int.MinValue;
+                int moveCount = 0;
 
-                foreach (var move in ordered)
+                foreach (var move in moves)
                 {
                     if (move == null || move.from == null || move.to == null) continue;
                     
@@ -370,8 +391,22 @@ namespace ChessLogic
                         ApplyMove(board, move, out undo);
 
                         int score;
-                        // Late move reductions could be added here; we keep simple negamax with alpha-beta
-                        score = -Negamax(board, depth - 1, -beta, -alpha, toMove.Opponent());
+                        
+                        // Late move reduction: reduce search depth for moves late in the list
+                        if (depth >= 3 && moveCount >= 4 && !board.IsCapturingMove(move) && !board.IsPromotionMove(move))
+                        {
+                            // Reduce depth by 1 for quiet moves after the first few
+                            score = -Negamax(board, depth - 2, -beta, -alpha, toMove.Opponent());
+                            // If this move is promising, do a full search
+                            if (score > alpha)
+                            {
+                                score = -Negamax(board, depth - 1, -beta, -alpha, toMove.Opponent());
+                            }
+                        }
+                        else
+                        {
+                            score = -Negamax(board, depth - 1, -beta, -alpha, toMove.Opponent());
+                        }
 
                         UndoMove(board, undo);
 
@@ -391,6 +426,8 @@ namespace ChessLogic
                             RecordHistory(move, depth);
                             break;
                         }
+                        
+                        moveCount++;
                     }
                     catch (Exception)
                     {
@@ -414,6 +451,12 @@ namespace ChessLogic
             }
         }
 
+        // Replacement of original Minimax with Negamax wrapper for root; kept for compatibility
+        private static int Minimax(Board board, int depth, int alpha, int beta, Player maximizingPlayer, Player toMove)
+        {
+            // We implement Negamax style above; this method kept as compatibility wrapper (not used).
+            return Negamax(board, depth, alpha, beta, toMove);
+        }
 
         // Move ordering comparator (higher => searched earlier)
         private static int MoveOrderComparer(Board board, Move a, Move b)
@@ -653,7 +696,7 @@ namespace ChessLogic
         {
             try
             {
-                if (board == null || player == Player.None) return Enumerable.Empty<Move>();
+                if (board == null) return Enumerable.Empty<Move>();
                 
                 IEnumerable<Move> moveCandidates = board.PiecePositionsFor(player).SelectMany(pos =>
                 {
@@ -740,7 +783,7 @@ namespace ChessLogic
                         }
                 }
             }
-            catch (Exception)
+            catch (Exception ex)
             {
                 throw; // Re-throw to be caught by the caller
             }
