@@ -11,6 +11,8 @@ using System.Windows.Media.Animation;
 using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
 using System.Windows.Threading;
+using System.Threading.Tasks;
+using System.Runtime.InteropServices;
 
 namespace ChessUI
 {
@@ -75,6 +77,26 @@ namespace ChessUI
         private int storedMinutes = (int)Modes.Regular;
 
         private Position selecetedPos = null;
+
+        // AI settings
+        private bool aiEnabled = false;
+        private Player aiPlayer = Player.Black;
+        private bool isAiThinking = false;
+
+        // Console allocation for AI thinking logs
+        [DllImport("kernel32.dll", SetLastError = true)]
+        private static extern bool AllocConsole();
+        private bool consoleAllocated = false;
+        private void EnsureConsole()
+        {
+            if (!consoleAllocated)
+            {
+                try { AllocConsole(); consoleAllocated = true; }
+                catch { }
+            }
+        }
+
+        
         public MainWindow()
         {
             InitializeComponent();
@@ -310,12 +332,47 @@ namespace ChessUI
                     SoundManager.PlayGameEndSound();
                     gameTimer.Stop();
                 }
+                else
+                {
+                    // Trigger AI move if enabled and it's AI's turn
+                    MaybeMakeAIMove();
+                }
             }
             catch (Exception ex)
             {
                 MessageBox.Show($"Error executing move: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
             fenHistory.Add(gameState.ToFen());
+        }
+
+        private async void MaybeMakeAIMove()
+        {
+            if (!aiEnabled || isAiThinking) return;
+            if (gameState.IsGameOver()) return;
+            if (gameState.CurrentPlayer != aiPlayer) return;
+
+            try
+            {
+                isAiThinking = true;
+                EnsureConsole();
+                Move aiMove = await Task.Run(() => ChessAI.ChooseBestMove(
+                    gameState,
+                    3,
+                    msg => Console.WriteLine(msg)
+                ));
+                if (aiMove != null && gameState.CurrentPlayer == aiPlayer && !gameState.IsGameOver())
+                {
+                    HandleMove(aiMove);
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"AI move failed: {ex.Message}", "AI Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            finally
+            {
+                isAiThinking = false;
+            }
         }
 
         /// <summary>
@@ -852,6 +909,16 @@ namespace ChessUI
             fenHistory.Clear();
             replayIndex = -1;
             MoveListBox.Items.Clear();
+        }
+
+        private void AIButton_Click(object sender, RoutedEventArgs e)
+        {
+            aiEnabled = !aiEnabled;
+            AIbutton.Content = aiEnabled ? "AI: ON" : "AI: OFF";
+            if (aiEnabled)
+            {
+                MaybeMakeAIMove();
+            }
         }
     }
 }
