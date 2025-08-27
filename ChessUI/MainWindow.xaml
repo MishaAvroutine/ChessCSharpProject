@@ -33,10 +33,22 @@
                     <Button Content="→" Width="45" Height="25" Margin="3" Style="{StaticResource ButtonStyle}" Click="NextButton_Click"/>
                 </StackPanel>
             </StackPanel>
-            
-            <!--AI TOGGLE-->
-            <Button x:Name="AIbutton" Grid.Row="1" Content="AI: OFF" Width="60" Height="25" Margin="3" Style="{StaticResource ButtonStyle}" Click="AIButton_Click"/>
-            
+
+            <Grid Grid.Row="1">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="2.5*"/>
+                    <RowDefinition Height="0.5*"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="0.5*"/>
+                </Grid.RowDefinitions>
+
+                <!--AI TOGGLE-->
+                <Button x:Name="AIbutton" Grid.Row="0" Content="AI: OFF" Width="60" Height="25" Margin="3" Style="{StaticResource ButtonStyle}" Click="AIButton_Click"/>
+                <TextBlock Grid.Row="1" Text="Enter Fen Position To load: " FontSize="14" Style="{StaticResource TextStyle}" TextWrapping="Wrap"/>
+                <TextBox x:Name="FenLoader" Grid.Row="2" Width="100" Height="40" Style="{StaticResource TextBoxStyle }"/>
+                <Button x:Name="LoadFen" Grid.Row="3" Content="Load Fen" Width="60" Height="25" Style="{StaticResource ButtonStyle}" Click="LoadFen_Click"/>
+            </Grid>
+
             <!-- Chess Board in second column -->
             <Viewbox Grid.Column="1" Margin="0" Grid.Row="0" Grid.RowSpan="2">
                 <Border Width="500" Height="623" Style="{StaticResource BorderStyle}">

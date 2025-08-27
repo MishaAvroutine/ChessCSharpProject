@@ -318,5 +318,13 @@
         {
             Result = result;
         }
+
+        public GameState Copy()
+        {
+            return new GameState(CurrentPlayer,Board,
+                WhiteCanCastleKingside, WhiteCanCastleQueenside
+                , BlackCanCastleKingside, BlackCanCastleQueenside, 
+                EnPassantTarget,HalfMoveClock, FullMoveNumber);
+        }
     }
 }

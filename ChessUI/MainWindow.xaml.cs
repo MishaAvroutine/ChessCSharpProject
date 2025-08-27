@@ -359,7 +359,7 @@ namespace ChessUI
                 EnsureConsole();
                 Move aiMove = await Task.Run(() => ChessAI.ChooseBestMove(
                     gameState,
-                    4,
+                    3,
                     msg => Console.WriteLine(msg)
                 ));
                 if (aiMove != null && gameState.CurrentPlayer == aiPlayer && !gameState.IsGameOver())
@@ -921,6 +921,19 @@ namespace ChessUI
             {
                 MaybeMakeAIMove();
             }
+        }
+
+
+        private void LoadFenPosition()
+        {
+            string fen = FenLoader.Text;
+            gameState = ParseFenToGameState(fen);
+            DrawBoard(gameState.Board);
+            UpdateClocks();
+        }
+        private void LoadFen_Click(object sender, RoutedEventArgs e)
+        {
+            LoadFenPosition();
         }
     }
 }
