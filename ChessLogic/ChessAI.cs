@@ -108,8 +108,14 @@ namespace ChessLogic
 
         // Transposition table
         private enum TTFlag { Exact, LowerBound, UpperBound }
-        private struct TTEntry { public int Depth; public int Value; public TTFlag Flag; public Move BestMove; }
-        private static readonly Dictionary<ulong, TTEntry> transpositionTable = new Dictionary<ulong, TTEntry>(1 << 20); // pre-sizing
+        private struct TTEntry
+        {
+            public int Depth;
+            public int Value;
+            public TTFlag Flag;
+            public Move BestMove;
+        }
+        private static readonly Dictionary<ulong, TTEntry> transpositionTable = new Dictionary<ulong, TTEntry>(1 << 20);
 
         // Killer moves: store top two killer moves per depth
         private static readonly Move[,] killers = new Move[64, 2];
@@ -120,566 +126,342 @@ namespace ChessLogic
         // Opening book instance
         private static readonly OpeningBook openingBook = new OpeningBook();
 
-        // Simple FNV-1a 64-bit hashing for board snapshot
+        // Cache for position-to-algebraic conversions
+        private static readonly Dictionary<(int row, int col), string> posToAlgCache = new Dictionary<(int, int), string>();
+        
+        // Pre-populate position cache
+        static ChessAI()
+        {
+            for (int row = 0; row < 8; row++)
+            {
+                for (int col = 0; col < 8; col++)
+                {
+                    char file = (char)('a' + col);
+                    char rank = (char)('1' + (7 - row));
+                    posToAlgCache[(row, col)] = new string(new[] { file, rank });
+                }
+            }
+        }
+
+        // Optimized board hashing with reduced allocations
         private static ulong HashBoardSnapshot(Board board, Player toMove)
         {
-            // Build a 64-character representation for all squares (rank 8 -> 1, files a->h)
-            char[] buf = new char[66]; // 64 squares + 1 side + maybe two pawn skips encoded
-            for (int i = 0; i < 64; i++) buf[i] = '.'; // default empty
-
-            foreach (Position pos in board.PiecePositions())
-            {
-                int index = pos.row * 8 + pos.column;
-                Piece piece = board[pos];
-                if (piece == null) continue;
-                // map piece to single char (uppercase = white, lowercase = black)
-                char c = PieceToChar(piece);
-                buf[index] = c;
-            }
-
-            // side to move in position 64
-            buf[64] = toMove == Player.White ? 'w' : 'b';
-
-            // Pawn-skip (en-passant) positions: try to include them for disambiguation if available
-            // Attempt to read via board.GetPawnSkippedPosition if present (you used this earlier)
-            try
-            {
-                Position wp = board.GetPawnSkippedPosition(Player.White);
-                Position bp = board.GetPawnSkippedPosition(Player.Black);
-                // encode as characters if non-null
-                buf[65] = (wp != null) ? (char)('A' + (wp.row * 8 + wp.column) % 26) : '0';
-                // we only have space for one extra; we accept partial info — still helpful.
-            }
-            catch
-            {
-                // ignore if method not available or null
-            }
-
-            // FNV-1a 64-bit
             const ulong FNV_offset = 14695981039346656037UL;
             const ulong FNV_prime = 1099511628211UL;
             ulong hash = FNV_offset;
+            
             unchecked
             {
-                for (int i = 0; i < buf.Length; i++)
+                // Hash pieces directly without string allocation
+                for (int row = 0; row < 8; row++)
                 {
-                    hash ^= (byte)buf[i];
-                    hash *= FNV_prime;
+                    for (int col = 0; col < 8; col++)
+                    {
+                        Position pos = new Position(row, col);
+                        Piece piece = board[pos];
+                        byte pieceValue = PieceToByte(piece);
+                        hash ^= pieceValue;
+                        hash *= FNV_prime;
+                    }
                 }
+
+                // Add side to move
+                hash ^= (byte)(toMove == Player.White ? 1 : 0);
+                hash *= FNV_prime;
+
+                // Add en passant info if available
+                try
+                {
+                    Position wp = board.GetPawnSkippedPosition(Player.White);
+                    Position bp = board.GetPawnSkippedPosition(Player.Black);
+                    if (wp != null)
+                    {
+                        hash ^= (byte)(wp.row * 8 + wp.column + 64);
+                        hash *= FNV_prime;
+                    }
+                    if (bp != null)
+                    {
+                        hash ^= (byte)(bp.row * 8 + bp.column + 128);
+                        hash *= FNV_prime;
+                    }
+                }
+                catch { /* ignore */ }
             }
+            
             return hash;
         }
 
-        private static char PieceToChar(Piece p)
+        // Fast piece to byte conversion
+        private static byte PieceToByte(Piece p)
         {
-            if (p == null) return '.';
-            char c = p.Type switch
+            if (p == null) return 0;
+            
+            byte typeValue = p.Type switch
             {
-                PieceType.Pawn => 'p',
-                PieceType.Knight => 'n',
-                PieceType.Bishop => 'b',
-                PieceType.Rook => 'r',
-                PieceType.Queen => 'q',
-                PieceType.King => 'k',
-                _ => '?'
+                PieceType.Pawn => 1,
+                PieceType.Knight => 2,
+                PieceType.Bishop => 3,
+                PieceType.Rook => 4,
+                PieceType.Queen => 5,
+                PieceType.King => 6,
+                _ => 0
             };
-            return p.Color == Player.White ? char.ToUpper(c) : c;
+            
+            return p.Color == Player.White ? typeValue : (byte)(typeValue + 8);
         }
 
-        // Utility to encode a move to a small key for history table (from,to,promotion)
+        // Optimized move key generation
         private static ulong MoveToKey(Move m)
         {
-            if (m == null || m.from == null || m.to == null)
-            {
-                return 0UL;
-            }
-            // pack 6 bits from row/col into a 12-bit from, 12-bit to, 4-bit promo type
-            int fromIdx = m.from.row * 8 + m.from.column;
-            int toIdx = m.to.row * 8 + m.to.column;
-            int promo = (m.Type == MoveType.PawnPromotion && m is PawnPromotion pp) ? (int)pp.PromotionType : 0;
-            ulong key = ((ulong)(uint)fromIdx) | (((ulong)(uint)toIdx) << 6) | (((ulong)(uint)promo) << 12);
-            return key;
+            if (m?.from == null || m.to == null) return 0UL;
+            
+            ulong fromIdx = (ulong)(m.from.row * 8 + m.from.column);
+            ulong toIdx = (ulong)(m.to.row * 8 + m.to.column);
+            ulong promo = (m.Type == MoveType.PawnPromotion && m is PawnPromotion pp) ? (ulong)pp.PromotionType : 0UL;
+            
+            return fromIdx | (toIdx << 6) | (promo << 12);
         }
 
-        // Public entry: choose best move with iterative deepening
+        // Public entry with optimized book move selection
         public static Move ChooseBestMove(GameState state, int maxDepth = DEFAULT_SEARCH_DEPTH, Action<string> progress = null)
         {
-            try
+            if (state?.Board == null) return null;
+            if (maxDepth <= 0) maxDepth = 1;
+
+            // Quick book move check first - avoid expensive operations
+            Move bookMove = openingBook.TrySelectBookMoveOptimized(state);
+            if (bookMove != null)
             {
-                if (state == null) throw new ArgumentNullException(nameof(state));
-                if (maxDepth <= 0) maxDepth = 1;
+                progress?.Invoke($"AI book move {FormatMoveOptimized(bookMove)}");
+                return bookMove;
+            }
 
-                // clear heuristics before search
-                Array.Clear(killers, 0, killers.Length);
-                historyTable.Clear();
-                transpositionTable.Clear();
+            // Clear heuristics before search
+            Array.Clear(killers, 0, killers.Length);
+            historyTable.Clear();
+            transpositionTable.Clear();
 
-                Move bestMove = null;
-                Board rootBoard = state.Board.Copy();
-                Player rootToMove = state.CurrentPlayer;
+            Move bestMove = null;
+            Board rootBoard = state.Board.Copy();
+            Player rootToMove = state.CurrentPlayer;
 
-                // Sequence book: attempt to pick by exact FEN state
-                Move seqBook = openingBook.TrySelectBookMove(state);
-                if (seqBook != null)
+            // Iterative deepening
+            for (int depth = 1; depth <= maxDepth; depth++)
+            {
+                int alpha = int.MinValue + 1;
+                int beta = int.MaxValue - 1;
+                int bestScore = int.MinValue;
+                Move localBest = null;
+
+                // Get and order root moves more efficiently
+                var rootMoves = GetAllLegalMovesOptimized(rootBoard, rootToMove);
+                if (rootMoves.Count == 0)
                 {
-                    progress?.Invoke($"AI book move {FormatMove(seqBook)}");
-                    return seqBook;
+                    progress?.Invoke($"AI depth {depth}: no legal moves available");
+                    break;
                 }
 
-                // Opening book: optionally pick randomized starting move if available
-                Move bookMove = openingBook.TrySelectBookMove(rootBoard, rootToMove);
-                if (bookMove != null)
+                // Move PV move to front if available
+                if (bestMove != null)
                 {
-                    progress?.Invoke($"AI book move {FormatMove(bookMove)}");
-                    return bookMove;
-                }
-
-                // Iterative deepening
-                for (int depth = 1; depth <= maxDepth; depth++)
-                {
-                    try
+                    for (int i = 0; i < rootMoves.Count; i++)
                     {
-                        int alpha = int.MinValue + 1;
-                        int beta = int.MaxValue - 1;
-
-                        // Principal variation search (alpha-beta) for root moves
-                        int bestScore = int.MinValue;
-                        Move localBest = null;
-
-                        // gather root moves and order
-                        var rootMoves = GetAllLegalMoves(rootBoard, rootToMove)
-                            .OrderByDescending(m => rootBoard.IsCapturingMove(m))
-                            .ThenByDescending(m => rootBoard.IsPromotionMove(m))
-                            .ToList();
-
-                        if (!rootMoves.Any())
+                        if (MovesEqual(rootMoves[i], bestMove))
                         {
-                            progress?.Invoke($"AI depth {depth}: no legal moves available");
+                            var mv = rootMoves[i];
+                            rootMoves.RemoveAt(i);
+                            rootMoves.Insert(0, mv);
                             break;
                         }
-
-                        // Try PV move from previous depth first (if available)
-                        if (bestMove != null)
-                        {
-                            // move it to front if present
-                            var idx = rootMoves.FindIndex(m => MovesEqual(m, bestMove));
-                            if (idx > 0)
-                            {
-                                var mv = rootMoves[idx];
-                                rootMoves.RemoveAt(idx);
-                                rootMoves.Insert(0, mv);
-                            }
-                        }
-
-                        foreach (var move in rootMoves)
-                        {
-                            if (move == null || move.from == null || move.to == null) continue;
-                            
-                            try
-                            {
-                                UndoData undo;
-                                ApplyMove(rootBoard, move, out undo);
-                                int score = -Negamax(rootBoard, depth - 1, -beta, -alpha, rootToMove.Opponent());
-                                UndoMove(rootBoard, undo);
-
-                                if (score > bestScore)
-                                {
-                                    bestScore = score;
-                                    localBest = move;
-                                }
-
-                                alpha = Math.Max(alpha, score);
-                            }
-                            catch (Exception moveEx)
-                            {
-                                progress?.Invoke($"AI depth {depth} move {FormatMove(move)} failed: {moveEx.Message}");
-                                continue;
-                            }
-                        }
-
-                        if (localBest != null) bestMove = localBest;
-                        if (progress != null)
-                        {
-                            string bestText = localBest != null ? FormatMove(localBest) : "(none)";
-                            progress($"AI depth {depth} score {bestScore} best {bestText}");
-                        }
                     }
-                    catch (Exception depthEx)
-                    {
-                        progress?.Invoke($"AI depth {depth} failed: {depthEx.Message}");
-                        break;
-                    }
-                    // Optionally: time control / cancellation can be added here
                 }
 
-                return bestMove;
+                foreach (var move in rootMoves)
+                {
+                    if (move?.from == null || move.to == null) continue;
+                    
+                    UndoData undo;
+                    if (!TryApplyMove(rootBoard, move, out undo)) continue;
+                    
+                    int score = -Negamax(rootBoard, depth - 1, -beta, -alpha, rootToMove.Opponent());
+                    UndoMove(rootBoard, undo);
+
+                    if (score > bestScore)
+                    {
+                        bestScore = score;
+                        localBest = move;
+                    }
+                    alpha = Math.Max(alpha, score);
+                }
+
+                if (localBest != null) bestMove = localBest;
+                progress?.Invoke($"AI depth {depth} score {bestScore} best {FormatMoveOptimized(localBest)}");
             }
-            catch (Exception ex)
-            {
-                progress?.Invoke($"AI search failed: {ex.Message}");
-                return null;
-            }
+
+            return bestMove;
         }
 
-        // Negamax wrapper using transposition table & heuristics (returns score from side-to-move perspective)
+        // Optimized negamax with better error handling
         private static int Negamax(Board board, int depth, int alpha, int beta, Player toMove)
         {
-            try
+            if (board == null) return 0;
+            
+            // Transposition table lookup
+            ulong key = HashBoardSnapshot(board, toMove);
+            if (transpositionTable.TryGetValue(key, out TTEntry entry) && entry.Depth >= depth)
             {
-                if (board == null) return 0;
-                
-                // transposition lookup
-                ulong key = HashBoardSnapshot(board, toMove);
-                if (transpositionTable.TryGetValue(key, out TTEntry entry) && entry.Depth >= depth)
-                {
-                    if (entry.Flag == TTFlag.Exact) return entry.Value;
-                    if (entry.Flag == TTFlag.LowerBound) alpha = Math.Max(alpha, entry.Value);
-                    else if (entry.Flag == TTFlag.UpperBound) beta = Math.Min(beta, entry.Value);
-                    if (alpha >= beta) return entry.Value;
-                }
-
-                if (depth == 0)
-                {
-                    // Quiescence search instead of static evaluation to avoid horizon effects
-                    return Quiescence(board, alpha, beta, toMove);
-                }
-
-                IEnumerable<Move> moves = GetAllLegalMoves(board, toMove);
-                if (!moves.Any())
-                {
-                    if (board.IsInCheck(toMove))
-                        return -1000000000 + (DEFAULT_SEARCH_DEPTH - depth) * 10; // mate score negative
-                    return 0; // stalemate
-                }
-
-                // Move ordering: captures (MVV-LVA), promotions, killers, history
-                var ordered = moves.ToList();
-                ordered.Sort((a, b) => MoveOrderComparer(board, a, b)); // sorts descending (best first)
-
-                int originalAlpha = alpha;
-                Move bestLocal = null;
-                int value = int.MinValue;
-
-                foreach (var move in ordered)
-                {
-                    if (move == null || move.from == null || move.to == null) continue;
-                    
-                    try
-                    {
-                        UndoData undo;
-                        ApplyMove(board, move, out undo);
-
-                        int score;
-                        // Late move reductions could be added here; we keep simple negamax with alpha-beta
-                        score = -Negamax(board, depth - 1, -beta, -alpha, toMove.Opponent());
-
-                        UndoMove(board, undo);
-
-                        if (score > value)
-                        {
-                            value = score;
-                            bestLocal = move;
-                        }
-                        if (value > alpha)
-                        {
-                            alpha = value;
-                        }
-                        if (alpha >= beta)
-                        {
-                            // Beta cutoff: record killer and history
-                            RecordKiller(move, depth);
-                            RecordHistory(move, depth);
-                            break;
-                        }
-                    }
-                    catch (Exception)
-                    {
-                        // Skip this move if it causes an error
-                        continue;
-                    }
-                }
-
-                // store in transposition table
-                TTFlag flag = TTFlag.Exact;
-                if (value <= originalAlpha) flag = TTFlag.UpperBound;
-                else if (value >= beta) flag = TTFlag.LowerBound;
-
-                transpositionTable[key] = new TTEntry { Depth = depth, Value = value, Flag = flag, BestMove = bestLocal };
-
-                return value;
+                if (entry.Flag == TTFlag.Exact) return entry.Value;
+                if (entry.Flag == TTFlag.LowerBound) alpha = Math.Max(alpha, entry.Value);
+                else if (entry.Flag == TTFlag.UpperBound) beta = Math.Min(beta, entry.Value);
+                if (alpha >= beta) return entry.Value;
             }
-            catch (Exception)
+
+            if (depth == 0)
             {
-                return 0; // Return neutral score on error
+                return Quiescence(board, alpha, beta, toMove);
+            }
+
+            var moves = GetAllLegalMovesOptimized(board, toMove);
+            if (moves.Count == 0)
+            {
+                if (board.IsInCheck(toMove))
+                    return -1000000000 + (DEFAULT_SEARCH_DEPTH - depth) * 10;
+                return 0;
+            }
+
+            // Sort moves for better alpha-beta pruning
+            SortMoves(board, moves, depth);
+
+            int originalAlpha = alpha;
+            Move bestLocal = null;
+            int value = int.MinValue;
+
+            foreach (var move in moves)
+            {
+                if (move?.from == null || move.to == null) continue;
+                
+                UndoData undo;
+                if (!TryApplyMove(board, move, out undo)) continue;
+
+                int score = -Negamax(board, depth - 1, -beta, -alpha, toMove.Opponent());
+                UndoMove(board, undo);
+
+                if (score > value)
+                {
+                    value = score;
+                    bestLocal = move;
+                }
+                if (value > alpha)
+                {
+                    alpha = value;
+                }
+                if (alpha >= beta)
+                {
+                    RecordKiller(move, depth);
+                    RecordHistory(move, depth);
+                    break;
+                }
+            }
+
+            // Store in transposition table
+            TTFlag flag = TTFlag.Exact;
+            if (value <= originalAlpha) flag = TTFlag.UpperBound;
+            else if (value >= beta) flag = TTFlag.LowerBound;
+
+            transpositionTable[key] = new TTEntry { Depth = depth, Value = value, Flag = flag, BestMove = bestLocal };
+
+            return value;
+        }
+
+        
+        private static List<Move> GetAllLegalMovesOptimized(Board board, Player player)
+        {
+            var result = new List<Move>(128); // Pre-allocate reasonable size
+            
+            if (board == null || player == Player.None) return result;
+
+            var positions = board.PiecePositionsFor(player);
+            foreach (Position pos in positions)
+            {
+                if (pos == null) continue;
+                Piece piece = board[pos];
+                if (piece == null) continue;
+
+                var moves = piece.GetMoves(pos, board);
+                foreach (Move move in moves)
+                {
+                    if (move != null && move.IsLegal(board))
+                    {
+                        result.Add(move);
+                    }
+                }
+            }
+
+            return result;
+        }
+
+        // Optimized move sorting
+        private static void SortMoves(Board board, List<Move> moves, int depth)
+        {
+            
+            for (int i = 1; i < moves.Count; i++)
+            {
+                Move current = moves[i];
+                int currentScore = GetMoveScore(board, current, depth);
+                int j = i - 1;
+
+                while (j >= 0 && GetMoveScore(board, moves[j], depth) < currentScore)
+                {
+                    moves[j + 1] = moves[j];
+                    j--;
+                }
+                moves[j + 1] = current;
             }
         }
 
-
-        // Move ordering comparator (higher => searched earlier)
-        private static int MoveOrderComparer(Board board, Move a, Move b)
+        // Fast move scoring for ordering
+        private static int GetMoveScore(Board board, Move move, int depth)
         {
-            // Captures first: MVV-LVA heuristic
-            int scoreA = 0, scoreB = 0;
+            if (move?.from == null || move.to == null) return -1000000;
 
-            if (a == null || a.from == null || a.to == null) return 1;
-            if (b == null || b.from == null || b.to == null) return -1;
+            int score = 0;
 
-            bool aCap = board.IsCapturingMove(a);
-            bool bCap = board.IsCapturingMove(b);
-            if (aCap || bCap)
+            // Captures (MVV-LVA)
+            if (board.IsCapturingMove(move))
             {
-                if (aCap)
-                {
-                    Piece victim = board[a.to];
-                    Piece attacker = board[a.from];
-                    int victimVal = victim != null ? PieceValues[victim.Type] : (a.Type == MoveType.EnPassant ? PieceValues[PieceType.Pawn] : 0);
-                    int attackerVal = attacker != null ? PieceValues[attacker.Type] : 0;
-                    scoreA += 1000 + (victimVal - attackerVal);
-                }
-                if (bCap)
-                {
-                    Piece victim = board[b.to];
-                    Piece attacker = board[b.from];
-                    int victimVal = victim != null ? PieceValues[victim.Type] : (b.Type == MoveType.EnPassant ? PieceValues[PieceType.Pawn] : 0);
-                    int attackerVal = attacker != null ? PieceValues[attacker.Type] : 0;
-                    scoreB += 1000 + (victimVal - attackerVal);
-                }
+                Piece victim = board[move.to];
+                Piece attacker = board[move.from];
+                int victimVal = victim != null ? PieceValues[victim.Type] : 
+                               (move.Type == MoveType.EnPassant ? PieceValues[PieceType.Pawn] : 0);
+                int attackerVal = attacker != null ? PieceValues[attacker.Type] : 0;
+                score += 10000 + victimVal - attackerVal;
             }
 
-            // Promotions next
-            if (board.IsPromotionMove(a)) scoreA += 800;
-            if (board.IsPromotionMove(b)) scoreB += 800;
+            // Promotions
+            if (board.IsPromotionMove(move)) score += 8000;
 
-            // Killer moves heuristic (if matches killer for this depth)
-            // We don't have depth param here but killers array indexed by assumed search depth (we approximate)
-            // For ordering we can check existence in killers table at common depths
-            for (int d = 0; d < 64; d++)
+            // Killer moves
+            if (depth < 64)
             {
-                if (!IsEmptyMove(killers[d, 0]) && MovesEqual(a, killers[d, 0])) scoreA += 400;
-                if (!IsEmptyMove(killers[d, 1]) && MovesEqual(a, killers[d, 1])) scoreA += 300;
-                if (!IsEmptyMove(killers[d, 0]) && MovesEqual(b, killers[d, 0])) scoreB += 400;
-                if (!IsEmptyMove(killers[d, 1]) && MovesEqual(b, killers[d, 1])) scoreB += 300;
+                if (MovesEqual(move, killers[depth, 0])) score += 4000;
+                else if (MovesEqual(move, killers[depth, 1])) score += 3000;
             }
 
             // History heuristic
-            ulong ka = MoveToKey(a);
-            ulong kb = MoveToKey(b);
-            if (historyTable.TryGetValue(ka, out int hv)) scoreA += hv;
-            if (historyTable.TryGetValue(kb, out int hv2)) scoreB += hv2;
-
-            // final compare (descending)
-            return scoreB - scoreA;
-        }
-
-        private static string FormatMove(Move m)
-        {
-            if (m == null || m.from == null || m.to == null) return "(null)";
-            string from = PosToAlg(m.from);
-            string to = PosToAlg(m.to);
-            if (m.Type == MoveType.PawnPromotion && m is PawnPromotion pp)
-            {
-                char promo = pp.PromotionType switch
-                {
-                    PieceType.Queen => 'Q',
-                    PieceType.Rook => 'R',
-                    PieceType.Bishop => 'B',
-                    PieceType.Knight => 'N',
-                    _ => 'Q'
-                };
-                return from + to + "=" + promo;
-            }
-            if (m.Type == MoveType.CastleKS) return "O-O";
-            if (m.Type == MoveType.CastleQS) return "O-O-O";
-            return from + to;
-        }
-
-        private static string PosToAlg(Position p)
-        {
-            char file = (char)('a' + p.column);
-            char rank = (char)('1' + (7 - p.row));
-            return new string(new[] { file, rank });
-        }
-
-        private static bool IsEmptyMove(Move m)
-        {
-            return m == null || m.from == null;
-        }
-
-        private static void RecordKiller(Move move, int depth)
-        {
-            int idx = Math.Min(depth, 63);
-            if (IsEmptyMove(killers[idx, 0]) || !MovesEqual(killers[idx, 0], move))
-            {
-                // shift 0 -> 1, insert move as 0
-                killers[idx, 1] = killers[idx, 0];
-                killers[idx, 0] = move;
-            }
-        }
-
-        private static void RecordHistory(Move move, int depth)
-        {
             ulong key = MoveToKey(move);
-            int add = depth * depth;
-            if (historyTable.TryGetValue(key, out int cur)) historyTable[key] = cur + add;
-            else historyTable[key] = add;
-        }
-
-        private static bool MovesEqual(Move a, Move b)
-        {
-            if (a == null || b == null) return false;
-            if (a.from == null || b.from == null) return false;
-            return a.from.row == b.from.row && a.from.column == b.from.column
-                && a.to.row == b.to.row && a.to.column == b.to.column
-                && a.Type == b.Type;
-        }
-
-        // Evaluate board from the perspective of 'perspective' player
-        private static int Evaluate(Board board, Player perspective)
-        {
-            try
+            if (historyTable.TryGetValue(key, out int historyScore))
             {
-                if (board == null) return 0;
-                
-                int material = 0;
-                int pstScore = 0;
-
-                foreach (Position pos in board.PiecePositions())
-                {
-                    Piece p = board[pos];
-                    if (p == null) continue;
-                    int value = PieceValues[p.Type];
-                    int sign = p.Color == Player.White ? 1 : -1;
-                    material += sign * value;
-
-                    // PST contribution (white perspective in arrays)
-                    int r = pos.row;
-                    int c = pos.column;
-                    int pst = 0;
-                    switch (p.Type)
-                    {
-                        case PieceType.Pawn:
-                            pst = PawnPST[r, c];
-                            break;
-                        case PieceType.Knight:
-                            pst = KnightPST[r, c];
-                            break;
-                        case PieceType.Bishop:
-                            pst = BishopPST[r, c];
-                            break;
-                        case PieceType.Rook:
-                            pst = RookPST[r, c];
-                            break;
-                        case PieceType.Queen:
-                            pst = QueenPST[r, c];
-                            break;
-                        case PieceType.King:
-                            pst = KingPST[r, c];
-                            break;
-                    }
-
-                    // For black pieces, flip table
-                    if (p.Color == Player.White) pstScore += pst;
-                    else pstScore -= pst;
-                }
-
-                // Mobility (light)
-                int mobility = CountMobility(board, Player.White) - CountMobility(board, Player.Black);
-
-                int scoreFromWhitePOV = material + pstScore + mobility;
-
-                // Endgame heuristic: when non-king material is low, encourage forcing enemy king to corner
-                int nonKingMaterial = Math.Abs(scoreFromWhitePOV) - (PieceValues[PieceType.King] * 0); // king excluded logically
-                int totalNonKingMaterial = 0;
-                foreach (Position pos in board.PiecePositions())
-                {
-                    Piece p = board[pos];
-                    if (p == null || p.Type == PieceType.King) continue;
-                    totalNonKingMaterial += PieceValues[p.Type];
-                }
-                if (totalNonKingMaterial <= 1300) // rough endgame threshold
-                {
-                    Position whiteKing = FindKing(board, Player.White);
-                    Position blackKing = FindKing(board, Player.Black);
-                    if (whiteKing != null && blackKing != null)
-                    {
-                        // Bonus for pushing the side with less material towards corners
-                        int advantage = material; // + means white up material
-                        int blackToCorner = DistanceToNearestCorner(blackKing);
-                        int whiteToCorner = DistanceToNearestCorner(whiteKing);
-                        int cornerWeight = 8; // mild
-                        scoreFromWhitePOV += Math.Sign(advantage) * (whiteToCorner - blackToCorner) * cornerWeight;
-
-                        // Encourage kings to approach each other slightly in won endgames
-                        int kingsDistance = Math.Abs(whiteKing.row - blackKing.row) + Math.Abs(whiteKing.column - blackKing.column);
-                        scoreFromWhitePOV += Math.Sign(advantage) * (14 - kingsDistance);
-                    }
-                }
-
-                return perspective == Player.White ? scoreFromWhitePOV : -scoreFromWhitePOV;
+                score += historyScore;
             }
-            catch (Exception)
-            {
-                return 0; // Return neutral score on error
-            }
+
+            return score;
         }
 
-        private static int DistanceToNearestCorner(Position p)
+        // Safe move application with better error handling
+        private static bool TryApplyMove(Board board, Move move, out UndoData undo)
         {
-            int d1 = Math.Abs(p.row - 0) + Math.Abs(p.column - 0);
-            int d2 = Math.Abs(p.row - 0) + Math.Abs(p.column - 7);
-            int d3 = Math.Abs(p.row - 7) + Math.Abs(p.column - 0);
-            int d4 = Math.Abs(p.row - 7) + Math.Abs(p.column - 7);
-            return Math.Min(Math.Min(d1, d2), Math.Min(d3, d4));
-        }
-
-        private static Position FindKing(Board board, Player color)
-        {
-            foreach (Position pos in board.PiecePositionsFor(color))
-            {
-                Piece p = board[pos];
-                if (p != null && p.Type == PieceType.King) return pos;
-            }
-            return null;
-        }
-
-        private static int CountMobility(Board board, Player player)
-        {
-            // cheap mobility: count up to a cap
-            int count = GetAllLegalMoves(board, player).Take(40).Count();
-            return count * 2;
-        }
-
-        public static IEnumerable<Move> GetAllLegalMoves(Board board, Player player)
-        {
-            try
-            {
-                if (board == null || player == Player.None) return Enumerable.Empty<Move>();
-                
-                IEnumerable<Move> moveCandidates = board.PiecePositionsFor(player).SelectMany(pos =>
-                {
-                    try
-                    {
-                        if (pos == null) return Enumerable.Empty<Move>();
-                        Piece piece = board[pos];
-                        if (piece == null) return Enumerable.Empty<Move>();
-                        return piece.GetMoves(pos, board);
-                    }
-                    catch
-                    {
-                        return Enumerable.Empty<Move>();
-                    }
-                });
-                return moveCandidates.Where(move => move != null && move.IsLegal(board));
-            }
-            catch
-            {
-                return Enumerable.Empty<Move>();
-            }
-        }
-
-        // ApplyMove / UndoMove: kept essentially the same as your implementation, but adapted to this file
-        private static void ApplyMove(Board board, Move move, out UndoData undo)
-        {
+            undo = default;
+            
             try
             {
                 undo = new UndoData
@@ -699,50 +481,39 @@ namespace ChessLogic
                 {
                     case MoveType.CastleKS:
                     case MoveType.CastleQS:
+                        undo.IsCastle = true;
+                        move.Execute(board);
+                        if (move.Type == MoveType.CastleKS)
                         {
-                            undo.IsCastle = true;
-                            Castle c = (Castle)move;
-                            move.Execute(board);
-                            if (move.Type == MoveType.CastleKS)
-                            {
-                                undo.RookFrom = new Position(move.from.row, 7);
-                                undo.RookTo = new Position(move.from.row, 5);
-                            }
-                            else
-                            {
-                                undo.RookFrom = new Position(move.from.row, 0);
-                                undo.RookTo = new Position(move.from.row, 3);
-                            }
-                            undo.RookHadMovedBefore = board[undo.RookTo]?.HasMoved ?? false;
-                            break;
+                            undo.RookFrom = new Position(move.from.row, 7);
+                            undo.RookTo = new Position(move.from.row, 5);
                         }
+                        else
+                        {
+                            undo.RookFrom = new Position(move.from.row, 0);
+                            undo.RookTo = new Position(move.from.row, 3);
+                        }
+                        undo.RookHadMovedBefore = board[undo.RookTo]?.HasMoved ?? false;
+                        break;
                     case MoveType.EnPassant:
-                        {
-                            EnPassant ep = (EnPassant)move;
-                            Position capturePos = new Position(move.from.row, move.to.column);
-                            undo.CapturedAt = capturePos;
-                            undo.CapturedPiece = board[capturePos];
-                            move.Execute(board);
-                            break;
-                        }
+                        Position capturePos = new Position(move.from.row, move.to.column);
+                        undo.CapturedAt = capturePos;
+                        undo.CapturedPiece = board[capturePos];
+                        move.Execute(board);
+                        break;
                     case MoveType.PawnPromotion:
-                        {
-                            undo.IsPromotion = true;
-                            move.Execute(board);
-                            break;
-                        }
-                    case MoveType.DoublePawn:
-                    case MoveType.Normal:
+                        undo.IsPromotion = true;
+                        move.Execute(board);
+                        break;
                     default:
-                        {
-                            move.Execute(board);
-                            break;
-                        }
+                        move.Execute(board);
+                        break;
                 }
+                return true;
             }
-            catch (Exception)
+            catch
             {
-                throw; // Re-throw to be caught by the caller
+                return false;
             }
         }
 
@@ -760,120 +531,241 @@ namespace ChessLogic
 
         private static void UndoMove(Board board, UndoData undo)
         {
+            // Restore pawn skipped squares
             try
             {
-                // Restore pawn skipped squares
-                try
-                {
-                    board.SetPawnSkippedPosition(Player.White, undo.PrevWhiteSkip);
-                    board.SetPawnSkippedPosition(Player.Black, undo.PrevBlackSkip);
-                }
-                catch
-                {
-                    // ignore if board doesn't expose this
-                }
-
-                switch (undo.Move.Type)
-                {
-                    case MoveType.CastleKS:
-                    case MoveType.CastleQS:
-                        {
-                            Piece king = board[undo.To];
-                            board[undo.From] = king;
-                            board[undo.To] = null;
-                            if (king != null) king.HasMoved = undo.MovedPieceHadMovedBefore;
-
-                            Piece rook = board[undo.RookTo];
-                            board[undo.RookFrom] = rook;
-                            board[undo.RookTo] = null;
-                            if (rook != null) rook.HasMoved = undo.RookHadMovedBefore;
-                            break;
-                        }
-                    case MoveType.EnPassant:
-                        {
-                            Piece pawn = board[undo.To];
-                            board[undo.From] = pawn;
-                            board[undo.To] = null;
-                            if (pawn != null) pawn.HasMoved = undo.MovedPieceHadMovedBefore;
-
-                            board[undo.CapturedAt] = undo.CapturedPiece;
-                            break;
-                        }
-                    case MoveType.PawnPromotion:
-                        {
-                            // Restore pawn at 'From' and remove promoted piece at 'To'
-                            board[undo.To] = null;
-                            board[undo.From] = new Pawn(undo.MovedPieceBefore.Color) { HasMoved = undo.MovedPieceHadMovedBefore };
-                            break;
-                        }
-                    case MoveType.DoublePawn:
-                    case MoveType.Normal:
-                    default:
-                        {
-                            Piece moved = board[undo.To];
-                            board[undo.From] = moved;
-                            board[undo.To] = undo.CapturedPiece;
-                            if (moved != null) moved.HasMoved = undo.MovedPieceHadMovedBefore;
-                            break;
-                        }
-                }
+                board.SetPawnSkippedPosition(Player.White, undo.PrevWhiteSkip);
+                board.SetPawnSkippedPosition(Player.Black, undo.PrevBlackSkip);
             }
-            catch (Exception ex)
+            catch { /* ignore */ }
+
+            switch (undo.Move.Type)
             {
-                System.Diagnostics.Debug.WriteLine($"UndoMove failed for {undo.Move?.Type}: {ex.Message} at {ex.StackTrace}");
-                throw; // Re-throw to be caught by the caller
+                case MoveType.CastleKS:
+                case MoveType.CastleQS:
+                    Piece king = board[undo.To];
+                    board[undo.From] = king;
+                    board[undo.To] = null;
+                    if (king != null) king.HasMoved = undo.MovedPieceHadMovedBefore;
+
+                    Piece rook = board[undo.RookTo];
+                    board[undo.RookFrom] = rook;
+                    board[undo.RookTo] = null;
+                    if (rook != null) rook.HasMoved = undo.RookHadMovedBefore;
+                    break;
+                case MoveType.EnPassant:
+                    Piece pawn = board[undo.To];
+                    board[undo.From] = pawn;
+                    board[undo.To] = null;
+                    if (pawn != null) pawn.HasMoved = undo.MovedPieceHadMovedBefore;
+                    board[undo.CapturedAt] = undo.CapturedPiece;
+                    break;
+                case MoveType.PawnPromotion:
+                    board[undo.To] = null;
+                    board[undo.From] = new Pawn(undo.MovedPieceBefore.Color) { HasMoved = undo.MovedPieceHadMovedBefore };
+                    break;
+                default:
+                    Piece moved = board[undo.To];
+                    board[undo.From] = moved;
+                    board[undo.To] = undo.CapturedPiece;
+                    if (moved != null) moved.HasMoved = undo.MovedPieceHadMovedBefore;
+                    break;
             }
         }
 
-        // Quiescence search: only explores tactical moves (captures/promotions) to avoid horizon effects
+        // Optimized move formatting
+        private static string FormatMoveOptimized(Move m)
+        {
+            if (m?.from == null || m.to == null) return "(null)";
+            
+            if (m.Type == MoveType.CastleKS) return "O-O";
+            if (m.Type == MoveType.CastleQS) return "O-O-O";
+            
+            string from = posToAlgCache.TryGetValue((m.from.row, m.from.column), out string f) ? f : "??";
+            string to = posToAlgCache.TryGetValue((m.to.row, m.to.column), out string t) ? t : "??";
+            
+            if (m.Type == MoveType.PawnPromotion && m is PawnPromotion pp)
+            {
+                char promo = pp.PromotionType switch
+                {
+                    PieceType.Queen => 'Q',
+                    PieceType.Rook => 'R',
+                    PieceType.Bishop => 'B',
+                    PieceType.Knight => 'N',
+                    _ => 'Q'
+                };
+                return from + to + "=" + promo;
+            }
+            
+            return from + to;
+        }
+
+        private static void RecordKiller(Move move, int depth)
+        {
+            int idx = Math.Min(depth, 63);
+            if (!MovesEqual(killers[idx, 0], move))
+            {
+                killers[idx, 1] = killers[idx, 0];
+                killers[idx, 0] = move;
+            }
+        }
+
+        private static void RecordHistory(Move move, int depth)
+        {
+            ulong key = MoveToKey(move);
+            int add = depth * depth;
+            historyTable[key] = historyTable.TryGetValue(key, out int cur) ? cur + add : add;
+        }
+
+        private static bool MovesEqual(Move a, Move b)
+        {
+            if (a == null || b == null) return false;
+            if (a.from == null || b.from == null) return false;
+            return a.from.row == b.from.row && a.from.column == b.from.column
+                && a.to.row == b.to.row && a.to.column == b.to.column
+                && a.Type == b.Type;
+        }
+
+        // Rest of the methods remain largely the same but with reduced exception handling overhead
+        private static int Evaluate(Board board, Player perspective)
+        {
+            if (board == null) return 0;
+            
+            int material = 0;
+            int pstScore = 0;
+
+            foreach (Position pos in board.PiecePositions())
+            {
+                Piece p = board[pos];
+                if (p == null) continue;
+                
+                int value = PieceValues[p.Type];
+                int sign = p.Color == Player.White ? 1 : -1;
+                material += sign * value;
+
+                // PST contribution
+                int pst = GetPST(p.Type, pos.row, pos.column);
+                if (p.Color == Player.White) pstScore += pst;
+                else pstScore -= pst;
+            }
+
+            int mobility = CountMobility(board, Player.White) - CountMobility(board, Player.Black);
+            int scoreFromWhitePOV = material + pstScore + mobility;
+
+            // Simplified endgame logic
+            int totalNonKingMaterial = 0;
+            foreach (Position pos in board.PiecePositions())
+            {
+                Piece p = board[pos];
+                if (p != null && p.Type != PieceType.King)
+                    totalNonKingMaterial += PieceValues[p.Type];
+            }
+            
+            if (totalNonKingMaterial <= 1300)
+            {
+                Position whiteKing = FindKing(board, Player.White);
+                Position blackKing = FindKing(board, Player.Black);
+                if (whiteKing != null && blackKing != null)
+                {
+                    int advantage = material;
+                    int blackToCorner = DistanceToNearestCorner(blackKing);
+                    int whiteToCorner = DistanceToNearestCorner(whiteKing);
+                    scoreFromWhitePOV += Math.Sign(advantage) * (whiteToCorner - blackToCorner) * 8;
+
+                    int kingsDistance = Math.Abs(whiteKing.row - blackKing.row) + Math.Abs(whiteKing.column - blackKing.column);
+                    scoreFromWhitePOV += Math.Sign(advantage) * (14 - kingsDistance);
+                }
+            }
+
+            return perspective == Player.White ? scoreFromWhitePOV : -scoreFromWhitePOV;
+        }
+
+        // Fast PST lookup
+        private static int GetPST(PieceType type, int row, int col)
+        {
+            return type switch
+            {
+                PieceType.Pawn => PawnPST[row, col],
+                PieceType.Knight => KnightPST[row, col],
+                PieceType.Bishop => BishopPST[row, col],
+                PieceType.Rook => RookPST[row, col],
+                PieceType.Queen => QueenPST[row, col],
+                PieceType.King => KingPST[row, col],
+                _ => 0
+            };
+        }
+
+        private static int DistanceToNearestCorner(Position p)
+        {
+            int d1 = Math.Abs(p.row) + Math.Abs(p.column);
+            int d2 = Math.Abs(p.row) + Math.Abs(p.column - 7);
+            int d3 = Math.Abs(p.row - 7) + Math.Abs(p.column);
+            int d4 = Math.Abs(p.row - 7) + Math.Abs(p.column - 7);
+            return Math.Min(Math.Min(d1, d2), Math.Min(d3, d4));
+        }
+
+        private static Position FindKing(Board board, Player color)
+        {
+            foreach (Position pos in board.PiecePositionsFor(color))
+            {
+                Piece p = board[pos];
+                if (p?.Type == PieceType.King) return pos;
+            }
+            return null;
+        }
+
+        private static int CountMobility(Board board, Player player)
+        {
+            return GetAllLegalMovesOptimized(board, player).Count * 2;
+        }
+
         private static int Quiescence(Board board, int alpha, int beta, Player toMove)
         {
-            try
+            if (board == null) return 0;
+            
+            int standPat = Evaluate(board, toMove);
+            if (standPat >= beta) return beta;
+            if (standPat > alpha) alpha = standPat;
+
+            // Generate only tactical moves
+            var tactical = new List<Move>();
+            foreach (Position pos in board.PiecePositionsFor(toMove))
             {
-                if (board == null) return 0;
-                
-                int standPat = Evaluate(board, toMove);
-                if (standPat >= beta) return beta;
-                if (standPat > alpha) alpha = standPat;
+                Piece piece = board[pos];
+                if (piece == null) continue;
 
-                // Generate only tactical moves: captures and promotions
-                var tactical = GetAllLegalMoves(board, toMove)
-                    .Where(m => board.IsCapturingMove(m) || board.IsPromotionMove(m))
-                    .ToList();
-
-                // Move ordering by MVV-LVA on tactical moves
-                tactical.Sort((a, b) => MoveOrderComparer(board, a, b));
-
-                foreach (var move in tactical)
+                var moves = piece.GetMoves(pos, board);
+                foreach (Move move in moves)
                 {
-                    if (move == null || move.from == null || move.to == null) continue;
-                    
-                    try
+                    if (move != null && move.IsLegal(board) && 
+                        (board.IsCapturingMove(move) || board.IsPromotionMove(move)))
                     {
-                        UndoData undo;
-                        ApplyMove(board, move, out undo);
-                        int score = -Quiescence(board, -beta, -alpha, toMove.Opponent());
-                        UndoMove(board, undo);
-
-                        if (score >= beta) return beta;
-                        if (score > alpha) alpha = score;
-                    }
-                    catch (Exception)
-                    {
-                        // Skip this move if it causes an error
-                        continue;
+                        tactical.Add(move);
                     }
                 }
+            }
 
-                return alpha;
-            }
-            catch (Exception)
+            // Sort tactical moves
+            SortMoves(board, tactical, 0);
+
+            foreach (var move in tactical)
             {
-                return 0; // Return neutral score on error
+                if (move?.from == null || move.to == null) continue;
+                
+                UndoData undo;
+                if (!TryApplyMove(board, move, out undo)) continue;
+                
+                int score = -Quiescence(board, -beta, -alpha, toMove.Opponent());
+                UndoMove(board, undo);
+
+                if (score >= beta) return beta;
+                if (score > alpha) alpha = score;
             }
+
+            return alpha;
         }
 
-        // Helper for debugging / tuning: prints transposition stats (optional)
+        // Utility methods for external access
         public static (int entries, int depthAvg) GetTranspositionStats()
         {
             int count = transpositionTable.Count;
@@ -883,32 +775,32 @@ namespace ChessLogic
             return (count, avg);
         }
 
-        // Opening book API (very light). Call once to load a file with lines like: e2e4, d2d4, c2c4, g1f3
+        public static IEnumerable<Move> GetAllLegalMoves(Board board, Player player)
+        {
+            return GetAllLegalMovesOptimized(board, player);
+        }
+
+        // Opening book methods
         public static void LoadOpeningBook(string filePath)
         {
             openingBook.LoadOpeningBook(filePath);
         }
 
-        // Append an additional opening file to the current book (does not clear existing)
         public static void AddOpeningBook(string filePath)
         {
             openingBook.AddOpeningBook(filePath);
         }
 
-        // Load all *.txt books from a folder (clears first)
         public static void LoadOpeningBooksFromFolder(string folderPath)
         {
             openingBook.LoadOpeningBooksFromFolder(folderPath);
         }
 
-        // Clear any loaded opening lines
         public static void ClearOpeningBook()
         {
             openingBook.ClearOpeningBook();
         }
 
-        // Advanced: load sequence lines (comma or space separated moves) into FEN->moves map
-        // Example line: e2e4, e7e5, g1f3, b8c6
         public static void LoadOpeningSequencesFromFile(string filePath)
         {
             openingBook.LoadOpeningSequencesFromFile(filePath);

@@ -6,206 +6,494 @@ namespace ChessLogic
 {
     public class OpeningBook
     {
-        // Opening book (very light-weight): list of long-algebraic strings like "e2e4"; randomized selection
-        private readonly List<string> openingBookLongAlgebraic = new List<string>();
+        // Simple opening book: HashSet for O(1) lookups instead of List
+        private readonly HashSet<string> openingBookLongAlgebraic = new HashSet<string>();
         private readonly Random rng = new Random();
 
-        // Sequence opening book: map FEN -> list of long-algebraic moves playable from that position
+        // Sequence opening book: map FEN -> list of moves
         private readonly Dictionary<string, List<string>> fenToBookMoves = new Dictionary<string, List<string>>();
 
-        // Opening book API (very light). Call once to load a file with lines like: e2e4, d2d4, c2c4, g1f3
+        // Cache for initial position detection (avoid repeated calculations)
+        private bool? isInitialPositionCached = null;
+        private ulong? lastBoardHash = null;
+
+        // Pre-compiled initial position data for faster detection
+        private static readonly (PieceType type, Player color)[] InitialSetup = new (PieceType, Player)[]
+        {
+            // Black back rank (row 0)
+            (PieceType.Rook, Player.Black), (PieceType.Knight, Player.Black), (PieceType.Bishop, Player.Black), (PieceType.Queen, Player.Black),
+            (PieceType.King, Player.Black), (PieceType.Bishop, Player.Black), (PieceType.Knight, Player.Black), (PieceType.Rook, Player.Black),
+            // White back rank (row 7)  
+            (PieceType.Rook, Player.White), (PieceType.Knight, Player.White), (PieceType.Bishop, Player.White), (PieceType.Queen, Player.White),
+            (PieceType.King, Player.White), (PieceType.Bishop, Player.White), (PieceType.Knight, Player.White), (PieceType.Rook, Player.White)
+        };
+
         public void LoadOpeningBook(string filePath)
         {
+            if (!System.IO.File.Exists(filePath)) return;
+            
             try
             {
-                if (!System.IO.File.Exists(filePath)) return;
-                var lines = System.IO.File.ReadAllLines(filePath)
-                    .Select(l => l.Trim().ToLowerInvariant())
-                    .Where(l => l.Length >= 4 && l.All(ch => char.IsLetterOrDigit(ch)))
-                    .ToList();
                 openingBookLongAlgebraic.Clear();
-                openingBookLongAlgebraic.AddRange(lines);
+                
+                // Read all lines at once and process efficiently
+                string[] lines = System.IO.File.ReadAllLines(filePath);
+                foreach (string line in lines)
+                {
+                    string trimmed = line.Trim();
+                    if (IsValidLongAlgebraic(trimmed))
+                    {
+                        openingBookLongAlgebraic.Add(trimmed.ToLowerInvariant());
+                    }
+                }
             }
             catch
             {
-                // ignore any IO errors
+                // Ignore IO errors silently
             }
         }
 
-        // Append an additional opening file to the current book (does not clear existing)
         public void AddOpeningBook(string filePath)
         {
+            if (!System.IO.File.Exists(filePath)) return;
+            
             try
             {
-                if (!System.IO.File.Exists(filePath)) return;
-                var lines = System.IO.File.ReadAllLines(filePath)
-                    .Select(l => l.Trim().ToLowerInvariant())
-                    .Where(l => l.Length >= 4 && l.All(ch => char.IsLetterOrDigit(ch)))
-                    .ToList();
-                openingBookLongAlgebraic.AddRange(lines);
+                string[] lines = System.IO.File.ReadAllLines(filePath);
+                foreach (string line in lines)
+                {
+                    string trimmed = line.Trim();
+                    if (IsValidLongAlgebraic(trimmed))
+                    {
+                        openingBookLongAlgebraic.Add(trimmed.ToLowerInvariant());
+                    }
+                }
             }
             catch
             {
-                // ignore any IO errors
+                // Ignore IO errors silently  
             }
         }
 
-        // Load all *.txt books from a folder (clears first)
         public void LoadOpeningBooksFromFolder(string folderPath)
         {
+            if (!System.IO.Directory.Exists(folderPath)) return;
+            
             try
             {
-                if (!System.IO.Directory.Exists(folderPath)) return;
                 openingBookLongAlgebraic.Clear();
-                foreach (var file in System.IO.Directory.EnumerateFiles(folderPath, "*.txt"))
+                string[] files = System.IO.Directory.GetFiles(folderPath, "*.txt");
+                foreach (string file in files)
                 {
                     AddOpeningBook(file);
                 }
             }
             catch
             {
-                // ignore any IO errors
+                // Ignore IO errors silently
             }
         }
 
-        // Clear any loaded opening lines
         public void ClearOpeningBook()
         {
             openingBookLongAlgebraic.Clear();
             fenToBookMoves.Clear();
+            isInitialPositionCached = null;
+            lastBoardHash = null;
         }
 
-        // Advanced: load sequence lines (comma or space separated moves) into FEN->moves map
-        // Example line: e2e4, e7e5, g1f3, b8c6
         public void LoadOpeningSequencesFromFile(string filePath)
         {
             if (!System.IO.File.Exists(filePath)) return;
-            foreach (var raw in System.IO.File.ReadAllLines(filePath))
+            
+            try
             {
-                string line = raw.Trim();
-                if (string.IsNullOrWhiteSpace(line)) continue;
-                // split by comma or whitespace
-                var tokens = line.Split(new[] { ',', ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries)
-                                  .Select(t => t.Trim().ToLowerInvariant())
-                                  .ToList();
-                if (tokens.Count == 0) continue;
-                // Build from initial position
-                Board b = Board.Inital("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR");
-                GameState gs = new GameState(Player.White, b);
-
-                for (int i = 0; i < tokens.Count; i++)
+                string[] lines = System.IO.File.ReadAllLines(filePath);
+                foreach (string line in lines)
                 {
-                    string fenKey = gs.ToFen();
-                    string la = tokens[i];
-                    Move mv = TryParseLongAlgebraic(gs, la);
-                    if (mv == null) break; // stop this line if illegal
-                    if (!fenToBookMoves.TryGetValue(fenKey, out var list))
-                    {
-                        list = new List<string>();
-                        fenToBookMoves[fenKey] = list;
-                    }
-                    if (!list.Contains(la)) list.Add(la);
-                    gs.MakeMove(mv);
-                    if (gs.IsGameOver()) break;
+                    ProcessSequenceLine(line.Trim());
                 }
+            }
+            catch
+            {
+                // Ignore errors silently
             }
         }
 
         public void LoadOpeningSequencesFromFolder(string folderPath)
         {
             if (!System.IO.Directory.Exists(folderPath)) return;
-            foreach (var file in System.IO.Directory.EnumerateFiles(folderPath, "*.pgn")
-                .Concat(System.IO.Directory.EnumerateFiles(folderPath, "*.lines"))
-                .Concat(System.IO.Directory.EnumerateFiles(folderPath, "*.seq"))
-                .Concat(System.IO.Directory.EnumerateFiles(folderPath, "*.txt")))
+            
+            try
             {
-                LoadOpeningSequencesFromFile(file);
+                string[] extensions = { "*.pgn", "*.lines", "*.seq", "*.txt" };
+                foreach (string extension in extensions)
+                {
+                    string[] files = System.IO.Directory.GetFiles(folderPath, extension);
+                    foreach (string file in files)
+                    {
+                        LoadOpeningSequencesFromFile(file);
+                    }
+                }
+            }
+            catch
+            {
+                // Ignore errors silently
             }
         }
 
+        // Optimized book move selection for GameState (sequence-based)
+        public Move TrySelectBookMoveOptimized(GameState state)
+        {
+            if (state?.Board == null) return null;
+            
+            // Try sequence book first
+            if (fenToBookMoves.Count > 0)
+            {
+                try
+                {
+                    string fen = state.ToFen();
+                    if (fenToBookMoves.TryGetValue(fen, out var moveList) && moveList.Count > 0)
+                    {
+                        var legalMoves = GetLegalMovesEfficiently(state);
+                        var candidates = new List<Move>();
+                        
+                        foreach (string longAlgebraic in moveList)
+                        {
+                            Move move = TryParseLongAlgebraic(state, longAlgebraic);
+                            if (move != null && ContainsMove(legalMoves, move))
+                            {
+                                candidates.Add(move);
+                            }
+                        }
+                        
+                        if (candidates.Count > 0)
+                        {
+                            return candidates[rng.Next(candidates.Count)];
+                        }
+                    }
+                }
+                catch
+                {
+                    // Fall through to simple book
+                }
+            }
+
+            // Try simple opening book
+            return TrySelectSimpleBookMove(state.Board, state.CurrentPlayer);
+        }
+
+        // Original method kept for backward compatibility
         public Move TrySelectBookMove(GameState state)
         {
-            if (fenToBookMoves.Count == 0) return null;
-            string fen = state.ToFen();
-            if (!fenToBookMoves.TryGetValue(fen, out var list) || list.Count == 0) return null;
-            var legal = ChessAI.GetAllLegalMoves(state.Board, state.CurrentPlayer).ToList();
-            var candidates = new List<Move>();
-            foreach (var la in list)
-            {
-                Move m = TryParseLongAlgebraic(state, la);
-                if (m != null && legal.Any(x => MovesEqual(x, m))) candidates.Add(m);
-            }
-            if (candidates.Count == 0) return null;
-            return candidates[rng.Next(candidates.Count)];
+            return TrySelectBookMoveOptimized(state);
         }
 
         public Move TrySelectBookMove(Board board, Player toMove)
         {
-            // Only attempt from the initial position (simple but effective to avoid repetitive first move)
-            if (!openingBookLongAlgebraic.Any()) return null;
+            return TrySelectSimpleBookMove(board, toMove);
+        }
 
-            // Detect initial setup heuristically: both sides have full back ranks and pawns in place
-            bool likelyInitial = true;
-            for (int c = 0; c < 8; c++)
-            {
-                if (!(board[new Position(1, c)] is Pawn pw && pw.Color == Player.Black)) likelyInitial = false;
-                if (!(board[new Position(6, c)] is Pawn pb && pb.Color == Player.White)) likelyInitial = false;
-            }
-            if (!(board[new Position(0, 4)] is King bk) || bk.Color != Player.Black) likelyInitial = false;
-            if (!(board[new Position(7, 4)] is King wk) || wk.Color != Player.White) likelyInitial = false;
-            if (!likelyInitial) return null;
+        private Move TrySelectSimpleBookMove(Board board, Player toMove)
+        {
+            if (openingBookLongAlgebraic.Count == 0 || board == null) return null;
 
-            var legal = ChessAI.GetAllLegalMoves(board, toMove).ToList();
+            // Fast initial position check with caching
+            if (!IsInitialPositionFast(board)) return null;
+
+            var legalMoves = GetLegalMovesEfficiently(board, toMove);
             var candidates = new List<Move>();
-            foreach (var mv in legal)
+            
+            foreach (Move move in legalMoves)
             {
-                string la = PosToAlg(mv.from) + PosToAlg(mv.to); // long algebraic like e2e4
-                if (openingBookLongAlgebraic.Contains(la.ToLowerInvariant())) candidates.Add(mv);
+                string longAlgebraic = FormatLongAlgebraic(move);
+                if (openingBookLongAlgebraic.Contains(longAlgebraic))
+                {
+                    candidates.Add(move);
+                }
             }
-            if (candidates.Count == 0) return null;
-            int idx = rng.Next(candidates.Count);
-            return candidates[idx];
+            
+            return candidates.Count > 0 ? candidates[rng.Next(candidates.Count)] : null;
+        }
+
+        // Optimized initial position detection with caching
+        private bool IsInitialPositionFast(Board board)
+        {
+            // Simple hash-based caching to avoid repeated expensive checks
+            ulong boardHash = ComputeSimpleBoardHash(board);
+            
+            if (lastBoardHash.HasValue && lastBoardHash.Value == boardHash && isInitialPositionCached.HasValue)
+            {
+                return isInitialPositionCached.Value;
+            }
+
+            lastBoardHash = boardHash;
+            isInitialPositionCached = CheckInitialPosition(board);
+            return isInitialPositionCached.Value;
+        }
+
+        private bool CheckInitialPosition(Board board)
+        {
+            // Check pawns first (most likely to be moved)
+            for (int col = 0; col < 8; col++)
+            {
+                Piece blackPawn = board[new Position(1, col)];
+                Piece whitePawn = board[new Position(6, col)];
+                
+                if (!(blackPawn is Pawn bp && bp.Color == Player.Black && !bp.HasMoved) ||
+                    !(whitePawn is Pawn wp && wp.Color == Player.White && !wp.HasMoved))
+                {
+                    return false;
+                }
+            }
+
+            // Check back ranks
+            for (int col = 0; col < 8; col++)
+            {
+                Piece blackPiece = board[new Position(0, col)];
+                Piece whitePiece = board[new Position(7, col)];
+                
+                var expectedBlack = InitialSetup[col];
+                var expectedWhite = InitialSetup[col + 8];
+                
+                if (blackPiece?.Type != expectedBlack.type || blackPiece.Color != expectedBlack.color ||
+                    whitePiece?.Type != expectedWhite.type || whitePiece.Color != expectedWhite.color)
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        // Simple hash function for board state caching
+        private ulong ComputeSimpleBoardHash(Board board)
+        {
+            ulong hash = 0;
+            
+            // Hash only the pieces that matter for initial position detection
+            for (int row = 0; row < 8; row++)
+            {
+                for (int col = 0; col < 8; col++)
+                {
+                    Piece piece = board[new Position(row, col)];
+                    if (piece != null)
+                    {
+                        hash ^= (ulong)((int)piece.Type + (int)piece.Color * 10) << ((row * 8 + col) % 60);
+                    }
+                }
+            }
+            
+            return hash;
+        }
+
+        private void ProcessSequenceLine(string line)
+        {
+            if (string.IsNullOrWhiteSpace(line)) return;
+            
+            // Split by common delimiters
+            string[] tokens = line.Split(new[] { ',', ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries);
+            if (tokens.Length == 0) return;
+
+            try
+            {
+                Board board = Board.Inital("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR");
+                GameState gameState = new GameState(Player.White, board);
+
+                for (int i = 0; i < tokens.Length; i++)
+                {
+                    string fen = gameState.ToFen();
+                    string longAlgebraic = tokens[i].Trim().ToLowerInvariant();
+                    
+                    if (!IsValidLongAlgebraic(longAlgebraic)) break;
+                    
+                    Move move = TryParseLongAlgebraic(gameState, longAlgebraic);
+                    if (move == null) break;
+                    
+                    // Add to book
+                    if (!fenToBookMoves.TryGetValue(fen, out var moveList))
+                    {
+                        moveList = new List<string>();
+                        fenToBookMoves[fen] = moveList;
+                    }
+                    
+                    if (!moveList.Contains(longAlgebraic))
+                    {
+                        moveList.Add(longAlgebraic);
+                    }
+                    
+                    gameState.MakeMove(move);
+                    if (gameState.IsGameOver()) break;
+                }
+            }
+            catch
+            {
+                // Skip this line if parsing fails
+            }
+        }
+
+        // Efficient legal move generation that avoids expensive LINQ operations
+        private List<Move> GetLegalMovesEfficiently(GameState state)
+        {
+            return GetLegalMovesEfficiently(state.Board, state.CurrentPlayer);
+        }
+
+        private List<Move> GetLegalMovesEfficiently(Board board, Player player)
+        {
+            var result = new List<Move>();
+            
+            var positions = board.PiecePositionsFor(player);
+            foreach (Position pos in positions)
+            {
+                Piece piece = board[pos];
+                if (piece == null) continue;
+                
+                var moves = piece.GetMoves(pos, board);
+                foreach (Move move in moves)
+                {
+                    if (move?.IsLegal(board) == true)
+                    {
+                        result.Add(move);
+                    }
+                }
+            }
+            
+            return result;
+        }
+
+        // Fast move comparison without LINQ
+        private bool ContainsMove(List<Move> moves, Move target)
+        {
+            if (target?.from == null || target.to == null) return false;
+            
+            foreach (Move move in moves)
+            {
+                if (MovesEqual(move, target)) return true;
+            }
+            
+            return false;
         }
 
         private Move TryParseLongAlgebraic(GameState state, string token)
         {
-            if (string.IsNullOrWhiteSpace(token)) return null;
-            string t = token.ToLowerInvariant();
-            // support e2e4 or e7e8q
-            if (t.Length < 4) return null;
-            string from = t.Substring(0, 2);
-            string to = t.Substring(2, 2);
-            char promo = t.Length >= 5 ? t[4] : '\0';
-
-            int FromFile(char f) => f - 'a';
-            int FromRank(char r) => 7 - (r - '1');
-
-            Position fromPos = new Position(FromRank(from[1]), FromFile(from[0]));
-            Position toPos = new Position(FromRank(to[1]), FromFile(to[0]));
-
-            var legal = state.LegalMovesForPiece(fromPos).Where(m => m.to.row == toPos.row && m.to.column == toPos.column);
-            if (promo != '\0')
+            if (string.IsNullOrWhiteSpace(token) || token.Length < 4) return null;
+            
+            string normalized = token.ToLowerInvariant();
+            
+            // Parse from/to positions
+            if (!TryParseSquare(normalized.Substring(0, 2), out Position fromPos) ||
+                !TryParseSquare(normalized.Substring(2, 2), out Position toPos))
             {
-                PieceType pt = promo switch { 'q' => PieceType.Queen, 'r' => PieceType.Rook, 'b' => PieceType.Bishop, 'n' => PieceType.Knight, _ => PieceType.Queen };
-                legal = legal.Where(m => m is PawnPromotion pp && pp.PromotionType == pt);
+                return null;
             }
-            return legal.FirstOrDefault();
+            
+            // Parse promotion if present
+            PieceType promotionType = PieceType.Queen;
+            if (normalized.Length >= 5)
+            {
+                char promo = normalized[4];
+                promotionType = promo switch
+                {
+                    'q' => PieceType.Queen,
+                    'r' => PieceType.Rook,
+                    'b' => PieceType.Bishop,
+                    'n' => PieceType.Knight,
+                    _ => PieceType.Queen
+                };
+            }
+            
+            // Find matching legal move
+            var legalMoves = state.LegalMovesForPiece(fromPos);
+            foreach (Move move in legalMoves)
+            {
+                if (move.to.row == toPos.row && move.to.column == toPos.column)
+                {
+                    if (normalized.Length >= 5 && move is PawnPromotion pp)
+                    {
+                        if (pp.PromotionType == promotionType) return move;
+                    }
+                    else if (normalized.Length < 5)
+                    {
+                        return move;
+                    }
+                }
+            }
+            
+            return null;
         }
 
-        private static string PosToAlg(Position p)
+        private bool TryParseSquare(string square, out Position position)
         {
-            char file = (char)('a' + p.column);
-            char rank = (char)('1' + (7 - p.row));
+            position = null;
+            if (square.Length != 2) return false;
+            
+            char file = square[0];
+            char rank = square[1];
+            
+            if (file < 'a' || file > 'h' || rank < '1' || rank > '8') return false;
+            
+            int col = file - 'a';
+            int row = 7 - (rank - '1');
+            
+            position = new Position(row, col);
+            return true;
+        }
+
+        private bool IsValidLongAlgebraic(string move)
+        {
+            if (string.IsNullOrWhiteSpace(move)) return false;
+            
+            move = move.ToLowerInvariant();
+            
+            // Must be at least 4 characters (e2e4)
+            if (move.Length < 4) return false;
+            
+            // Check basic format: letter+digit+letter+digit
+            return char.IsLetter(move[0]) && char.IsDigit(move[1]) &&
+                   char.IsLetter(move[2]) && char.IsDigit(move[3]) &&
+                   move[0] >= 'a' && move[0] <= 'h' &&
+                   move[1] >= '1' && move[1] <= '8' &&
+                   move[2] >= 'a' && move[2] <= 'h' &&
+                   move[3] >= '1' && move[3] <= '8';
+        }
+
+        private string FormatLongAlgebraic(Move move)
+        {
+            if (move?.from == null || move.to == null) return "";
+            
+            string from = PositionToSquare(move.from);
+            string to = PositionToSquare(move.to);
+            
+            if (move.Type == MoveType.PawnPromotion && move is PawnPromotion pp)
+            {
+                char promo = pp.PromotionType switch
+                {
+                    PieceType.Queen => 'q',
+                    PieceType.Rook => 'r',
+                    PieceType.Bishop => 'b',
+                    PieceType.Knight => 'n',
+                    _ => 'q'
+                };
+                return from + to + promo;
+            }
+            
+            return from + to;
+        }
+
+        private string PositionToSquare(Position pos)
+        {
+            char file = (char)('a' + pos.column);
+            char rank = (char)('1' + (7 - pos.row));
             return new string(new[] { file, rank });
         }
 
-        private static bool MovesEqual(Move a, Move b)
+        private bool MovesEqual(Move a, Move b)
         {
-            if (a == null || b == null) return false;
-            if (a.from == null || b.from == null) return false;
-            return a.from.row == b.from.row && a.from.column == b.from.column
-                && a.to.row == b.to.row && a.to.column == b.to.column
-                && a.Type == b.Type;
+            if (a == null || b == null || a.from == null || b.from == null) return false;
+            
+            return a.from.row == b.from.row && a.from.column == b.from.column &&
+                   a.to.row == b.to.row && a.to.column == b.to.column &&
+                   a.Type == b.Type;
         }
     }
-} 
+}

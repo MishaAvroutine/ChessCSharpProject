@@ -359,7 +359,7 @@ namespace ChessUI
                 EnsureConsole();
                 Move aiMove = await Task.Run(() => ChessAI.ChooseBestMove(
                     gameState,
-                    3,
+                    4,
                     msg => Console.WriteLine(msg)
                 ));
                 if (aiMove != null && gameState.CurrentPlayer == aiPlayer && !gameState.IsGameOver())
