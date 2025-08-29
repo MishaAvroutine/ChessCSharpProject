@@ -18,8 +18,9 @@ namespace ChessUI
         //function to load cursor
         public static Cursor LoadCursor(string filepath)
         {
-            Stream stream =  Application.GetResourceStream(new Uri(filepath, UriKind.Relative)).Stream;
+            Stream stream = Application.GetResourceStream(new Uri(filepath, UriKind.Relative)).Stream;
             return new Cursor(stream, true);
         }
     }
 }
+

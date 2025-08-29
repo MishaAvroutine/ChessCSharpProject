@@ -72,7 +72,7 @@ namespace ChessUI
         private DispatcherTimer gameTimer;
         private TimeSpan whiteTime = TimeSpan.FromMinutes((int)Modes.Regular);
         private TimeSpan blackTime = TimeSpan.FromMinutes((int)Modes.Regular);
-        private const int IncrementSeconds = 0x0;
+        private const double IncrementSeconds = 0.5;
 
         private int storedMinutes = (int)Modes.Regular;
 
@@ -362,6 +362,7 @@ namespace ChessUI
                     3,
                     msg => Console.WriteLine(msg)
                 ));
+                
                 if (aiMove != null && gameState.CurrentPlayer == aiPlayer && !gameState.IsGameOver())
                 {
                     HandleMove(aiMove);
@@ -703,7 +704,7 @@ namespace ChessUI
         */
         private void Window_KeyDown(object sender, KeyEventArgs e)
         {
-            if(!IsMenuOnScreen())
+            if (!IsMenuOnScreen())
             {
                 if (e.Key == Key.Escape)
                 {
@@ -712,6 +713,10 @@ namespace ChessUI
                 else if (e.Key == Key.F)
                 {
                     ShowCurrentFen();
+                }
+                else if (e.Key == Key.R)
+                {
+                    RestartGame(storedMinutes);
                 }
             }
         }
