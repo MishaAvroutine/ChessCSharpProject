@@ -4,7 +4,7 @@
     {
         public const int MAX_MOVES_WITHOUT_ANY_CAPTURES = 50;
         public const int NUM_OF_PLAYERS = 2;
-        public Board Board { get; } 
+        public Board Board { get; }
         public Player CurrentPlayer { get; private set; }
 
         public Result Result { get; private set; } = null;
@@ -18,9 +18,10 @@
         public Position EnPassantTarget { get; private set; } = null;
         public int HalfMoveClock { get; private set; } = 0;
         public int FullMoveNumber { get; private set; } = 1;
+        public readonly List<string> fenHistory = new();
 
-        public GameState(Player player, Board board, bool whiteKingside = true, bool whiteQueenside = true, 
-                         bool blackKingside = true, bool blackQueenside = true, Position enPassant = null, 
+        public GameState(Player player, Board board, bool whiteKingside = true, bool whiteQueenside = true,
+                         bool blackKingside = true, bool blackQueenside = true, Position enPassant = null,
                          int halfMoveClock = 0, int fullMoveNumber = 1)
         {
             CurrentPlayer = player;
@@ -41,7 +42,7 @@
         */
         public IEnumerable<Move> LegalMovesForPiece(Position pos)
         {
-            if(Board.IsEmpty(pos) || Board[pos].Color != CurrentPlayer)
+            if (Board.IsEmpty(pos) || Board[pos].Color != CurrentPlayer)
             {
                 return Enumerable.Empty<Move>();
             }
@@ -62,14 +63,14 @@
         {
             // Update castling rights before making the move
             UpdateCastlingRights(move);
-            
+
             // Update en passant target
             UpdateEnPassantTarget(move);
-            
+
             // Execute the move
             Board.SetPawnSkippedPosition(CurrentPlayer, null);
             bool captured = move.Execute(Board);
-            
+
             // Update move counters
             if (captured || move.Type == MoveType.PawnPromotion || move.Type == MoveType.DoublePawn)
             {
@@ -79,13 +80,13 @@
             {
                 HalfMoveClock++;
             }
-            
+
             // Update full move number after Black's move
             if (CurrentPlayer == Player.Black)
             {
                 FullMoveNumber++;
             }
-            
+
             CurrentPlayer = CurrentPlayer.Opponent();
             CheckForGameOver();
         }
@@ -111,7 +112,7 @@
                     BlackCanCastleQueenside = false;
                 }
             }
-            
+
             // If rook moves, lose castling rights for that side
             if (Board[move.from]?.Type == PieceType.Rook)
             {
@@ -141,7 +142,7 @@
         {
             // Clear previous en passant target
             EnPassantTarget = null;
-            
+
             // Set new en passant target for double pawn moves
             if (move.Type == MoveType.DoublePawn)
             {
@@ -192,7 +193,10 @@
             {
                 Result = Result.Draw(EndGame.FiftyMoveRule);
             }
-            // Note: Timer-based game over is handled separately in the UI
+            else if (ThreeFoldRepetition())
+            {
+                Result = Result.Draw(EndGame.ThreefoldRepetition);
+            }
         }
 
         /*
@@ -204,20 +208,20 @@
         {
             // Build placement string
             string placement = BuildPlacementString();
-            
+
             // Current player
             string currentPlayer = CurrentPlayer == Player.White ? "w" : "b";
-            
+
             // Castling rights
             string castling = BuildCastlingString();
-            
+
             // En passant
             string enPassant = EnPassantTarget == null ? "-" : PositionToAlgebraic(EnPassantTarget);
-            
+
             // Move counters
             string halfMoveClock = HalfMoveClock.ToString();
             string fullMoveNumber = FullMoveNumber.ToString();
-            
+
             return $"{placement} {currentPlayer} {castling} {enPassant} {halfMoveClock} {fullMoveNumber}";
         }
 
@@ -273,7 +277,7 @@
             if (WhiteCanCastleQueenside) result += "Q";
             if (BlackCanCastleKingside) result += "k";
             if (BlackCanCastleQueenside) result += "q";
-            
+
             return result.Length > 0 ? result : "-";
         }
 
@@ -321,10 +325,26 @@
 
         public GameState Copy()
         {
-            return new GameState(CurrentPlayer,Board,
+            return new GameState(CurrentPlayer, Board,
                 WhiteCanCastleKingside, WhiteCanCastleQueenside
-                , BlackCanCastleKingside, BlackCanCastleQueenside, 
-                EnPassantTarget,HalfMoveClock, FullMoveNumber);
+                , BlackCanCastleKingside, BlackCanCastleQueenside,
+                EnPassantTarget, HalfMoveClock, FullMoveNumber);
         }
+        public string GetPositionKey(string fen)
+        {
+            // Full FEN: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+
+            // Keep only first 4 parts: board, side to move, castling rights, en passant
+            string[] parts = fen.Split(' ');
+            return string.Join(" ", parts.Take(4));
+        }
+
+        private bool ThreeFoldRepetition()
+        {
+            string currentKey = GetPositionKey(ToFen());
+            int count = fenHistory.Count(fen => fen == currentKey);
+            return count >= 3;
+        }
+
     }
 }
