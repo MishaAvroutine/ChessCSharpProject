@@ -258,11 +258,16 @@ namespace ChessUI
                 }
 
                 IEnumerable<Move> moves = gameState.LegalMovesForPiece(pos);
-                if(moves.Any())
+                if (moves.Any())
                 {
                     selecetedPos = pos;
                     CacheMoves(moves);
                     HighLightSquare();
+                }
+                if (gameState.Board.IsInCheck(gameState.CurrentPlayer))
+                {
+                    Position kingPos = gameState.Board.FindPiece(gameState.CurrentPlayer, PieceType.King);
+                    HighLightCheck(kingPos);
                 }
             }
             catch (Exception ex)
@@ -287,11 +292,11 @@ namespace ChessUI
                 bool isCapture = gameState.Board.IsCapturingMove(move);
                 bool isPromotion = gameState.Board.IsPromotionMove(move);
                 bool isEnPassant = move.Type == MoveType.EnPassant;
-                
+
                 // Store the move in history before making it
                 string moveNotation = GetMoveNotation(move);
                 moveHistory.Add(moveNotation);
-                
+
                 gameState.MakeMove(move);
                 DrawBoard(gameState.Board);
                 SetCursor(gameState.CurrentPlayer);
@@ -306,7 +311,7 @@ namespace ChessUI
                 {
                     SoundManager.PlayCaptureSound();
                 }
-                else if(isPromotion)
+                else if (isPromotion)
                 {
                     SoundManager.PlayPromoteSound();
                 }
@@ -325,7 +330,7 @@ namespace ChessUI
                     blackTime = blackTime.Add(TimeSpan.FromSeconds(IncrementSeconds));
                 }
 
-                
+
                 UpdateClocks();
 
                 if (gameState.IsGameOver())
@@ -338,6 +343,11 @@ namespace ChessUI
                 {
                     // Trigger AI move if enabled and it's AI's turn
                     MaybeMakeAIMove();
+                }
+
+                if (gameState.Board.IsInCheck(gameState.CurrentPlayer))
+                {
+                    HighLightCheck(gameState.Board.FindPiece(gameState.CurrentPlayer,PieceType.King));
                 }
             }
             catch (Exception ex)
@@ -529,6 +539,12 @@ namespace ChessUI
         }
 
 
+        public void HighLightCheck(Position kingPos)
+        {
+            Color CheckHighLight = Color.FromArgb(175, 94, 10, 5);
+            HighLights[kingPos.row, kingPos.column].Fill = new SolidColorBrush(CheckHighLight);
+        }
+
         /*
          * 
          * function to highlight the squares from the cache
@@ -539,23 +555,6 @@ namespace ChessUI
         {
             HideHighLights();
             Color HighLightColor = Color.FromArgb(175, 49, 216, 229);
-            Color CheckHighLight = Color.FromArgb(175, 94, 10, 5);
-            Position kingPos = gameState.Board.FindPiece(gameState.CurrentPlayer, PieceType.King);
-            if(gameState.Board.IsInCheck(gameState.CurrentPlayer))
-            {
-                SolidColorBrush brush = new SolidColorBrush(CheckHighLight);
-                HighLights[kingPos.row, kingPos.column].Fill = brush;
-
-                var anim = new ColorAnimation
-                {
-                    From = Colors.Transparent,
-                    To = CheckHighLight,
-                    Duration = TimeSpan.FromSeconds(1),
-                    AutoReverse = true,
-                    RepeatBehavior = RepeatBehavior.Forever
-                };
-                brush.BeginAnimation(SolidColorBrush.ColorProperty, anim);
-            }
             foreach (Position to in moveCache.Keys)
             {
                 HighLights[to.row, to.column].Fill = new SolidColorBrush(HighLightColor);
@@ -575,16 +574,7 @@ namespace ChessUI
             {
                 for (int c = 0; c < SIZE; c++)
                 {
-                    if (HighLights[r, c].Fill is SolidColorBrush scb)
-                    {
-                        // Cancel any running animation
-                        scb.BeginAnimation(SolidColorBrush.ColorProperty, null);
-                        scb.Color = Colors.Transparent;
-                    }
-                    else
-                    {
-                        HighLights[r, c].Fill = new SolidColorBrush(Colors.Transparent);
-                    }
+                    HighLights[r, c].Fill = new SolidColorBrush(Colors.Transparent);
                 }
             }
         }
