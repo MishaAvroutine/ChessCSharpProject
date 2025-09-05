@@ -19,6 +19,8 @@
         public int HalfMoveClock { get; private set; } = 0;
         public int FullMoveNumber { get; private set; } = 1;
 
+        private readonly Dictionary<string,int> positionCounts = new(); // THREEFOLD REPETITION
+
         public GameState(Player player, Board board, bool whiteKingside = true, bool whiteQueenside = true, 
                          bool blackKingside = true, bool blackQueenside = true, Position enPassant = null, 
                          int halfMoveClock = 0, int fullMoveNumber = 1)
@@ -87,9 +89,21 @@
             }
             
             CurrentPlayer = CurrentPlayer.Opponent();
+
+            RecordPosition();
+
             CheckForGameOver();
         }
 
+
+        public void RecordPosition()
+        {
+            string key = GetPositionKey();
+            if (positionCounts.ContainsKey(key))
+                positionCounts[key]++;
+            else
+                positionCounts[key] = 1;
+        }
         /*
          * function to update castling rights based on the move made
          * input: the move that was made
@@ -192,7 +206,10 @@
             {
                 Result = Result.Draw(EndGame.FiftyMoveRule);
             }
-            // Note: Timer-based game over is handled separately in the UI
+            else if(IsThreefoldRepetition())
+            {
+                Result = Result.Draw(EndGame.ThreefoldRepetition);
+            }
         }
 
         /*
@@ -326,5 +343,20 @@
                 , BlackCanCastleKingside, BlackCanCastleQueenside, 
                 EnPassantTarget,HalfMoveClock, FullMoveNumber);
         }
+
+        private string GetPositionKey()
+        {
+            string fen = ToFen();
+            string[] parts = fen.Split(' ');
+            return string.Join(' ', parts[0], parts[1], parts[2], parts[3]);
+        }
+
+
+        public bool IsThreefoldRepetition()
+        {
+            string key = GetPositionKey();
+            return positionCounts.ContainsKey(key) && positionCounts[key] >= 3;
+        }
+
     }
 }
