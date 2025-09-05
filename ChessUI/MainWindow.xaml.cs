@@ -57,6 +57,7 @@ namespace ChessUI
         private readonly Rectangle[,] HighLights = new Rectangle[SIZE, SIZE];
         private readonly Dictionary<Position,Move> moveCache = new Dictionary<Position,Move>();
 
+        private readonly List<string> fenHistory = new();
         // move history for undo/redo functionality
         private readonly List<string> moveHistory = new(); // Store actual moves like "e4", "Nf3", etc.
 
@@ -301,7 +302,7 @@ namespace ChessUI
                 SetCursor(gameState.CurrentPlayer);
 
                 // Update replay index to current position (end of game)
-                replayIndex = gameState.fenHistory.Count;
+                replayIndex = fenHistory.Count;
 
                 // Update the move list display
                 UpdateMoveList();
@@ -353,7 +354,7 @@ namespace ChessUI
             {
                 MessageBox.Show($"Error executing move: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
-            gameState.fenHistory.Add(gameState.ToFen());
+            fenHistory.Add(gameState.ToFen());
         }
 
         private async void MaybeMakeAIMove()
@@ -822,7 +823,7 @@ namespace ChessUI
 
         private void NextButton_Click(object sender, RoutedEventArgs e)
         {
-            if (replayIndex < gameState.fenHistory.Count - 1)
+            if (replayIndex < fenHistory.Count - 1)
             {
                 replayIndex++;
                 LoadFenPosition(replayIndex);
@@ -832,7 +833,7 @@ namespace ChessUI
 
         private void LoadFenPosition(int index)
         {
-            string fen = gameState.fenHistory[index];
+            string fen = fenHistory[index];
             gameState = ParseFenToGameState(fen);
             DrawBoard(gameState.Board);
             UpdateClocks();
@@ -902,7 +903,7 @@ namespace ChessUI
         private void ClearMoveHistory()
         {
             moveHistory.Clear();
-            gameState.fenHistory.Clear();
+            fenHistory.Clear();
             replayIndex = -1;
             MoveListBox.Items.Clear();
         }
